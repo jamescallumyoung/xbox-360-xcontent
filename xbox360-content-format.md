@@ -254,9 +254,9 @@ The presence of a `.data/` companion directory is a reliable indicator that a pa
 
 ## 9. Display Name and Description Layout
 
-Sourced from XboxInternals/Velocity `XContentHeader.cpp` and the Free60 STFS format reference.
+Sourced from XboxInternals/Velocity `XContentHeader.cpp`, the Free60 STFS format reference, and verification against real Xbox 360 content files.
 
-### Text metadata fields (Metadata Version 1)
+### Text metadata fields
 
 | Field | Offset | Size | Notes |
 |---|---|---|---|
@@ -265,24 +265,37 @@ Sourced from XboxInternals/Velocity `XContentHeader.cpp` and the Free60 STFS for
 | Publisher name | `0x1611` | `0x80` | Single slot |
 | Title name | `0x1691` | `0x80` | Single slot |
 | Transfer flags | `0x1711` | `0x01` | |
-| Thumbnail image | `0x171A` | `0x4000` | Raw PNG/JPEG blob — not read by this tool |
+| Thumbnail image (primary) | `0x171A` | `0x4000` (v1) / `0x3D00` (v2) | Raw PNG/JPEG blob |
+| Thumbnail image (secondary/title) | `0x571A` | `0x4000` (v1) / `0x3D00` (v2) | Raw PNG/JPEG blob |
+
+### String encoding
+
+Display names, display descriptions, publisher name, and title name are encoded as **UTF-16BE (big-endian)** — the high byte is stored first. This is consistent with the Xbox 360 being a big-endian PowerPC system.
+
+**Source discrepancies:**
+- The Free60 Wiki incorrectly describes these fields as "UTF-8 strings".
+- The rom-properties open-source project explicitly documents UTF-16BE as the standard and notes known content where UTF-8 bytes were incorrectly stored as UTF-16BE (producing mojibake in the title string — see South Park: The Stick of Truth in our test fixtures).
+- Real-world byte inspection confirms BE: the character 'D' is stored as `0x00 0x44`, not `0x44 0x00`.
 
 ### Locale slots
 
-Each display name and display description field contains **18 consecutive slots**, each `0x80` bytes (128 bytes = 64 UTF-16LE characters), null-padded to fill the slot. Slot 0 is English. The Xbox 360 kernel selects the slot matching the console's configured language at runtime.
+Each display name and display description field contains **18 consecutive slots**, each `0x80` bytes (128 bytes = 64 UTF-16BE characters), null-padded to fill the slot.
 
-**Read strategy:** attempt slot 0 (English) first; fall back to the first non-empty slot if slot 0 is blank.
+**Observed slot pattern:** In all real-world files tested, non-empty display names appear only in even-indexed slots (0, 2, 4, 6, 8, 10, 12, 14, 16). Odd-indexed slots (1, 3, 5, …) are consistently empty. However, no public documentation definitively explains this pattern or provides an authoritative slot-index-to-language mapping. The exact language assigned to each slot index is not confirmed by any available public source.
+
+**Read strategy:** parse all 18 slots and discard empty ones. Do not assume any specific slot index corresponds to a specific language without further research.
 
 ### Required read size
 
-To cover all text metadata and stop before thumbnail data, a header read of **8 KB (`0x2000`)** is sufficient. The previously planned 4 KB read was too small — display description alone extends to `0x1611`.
+To cover all text metadata and stop before thumbnail data, a header read of **8 KB (`0x2000`)** is sufficient. The thumbnail area begins at `0x171A` (~5.9 KB), so parsing text fields only requires data up to `0x1712`.
 
 ### Metadata Version 2
 
-When the `Metadata Version` field at `0x0348` is `2`, the layout differs:
+When the `Metadata Version` field at `0x0348` is `2`, the thumbnail allocation size differs:
 
-- Thumbnail area moves from `0x171A` to `0x3D00`
-- Additional localised display name block at `0x541A`
-- Additional localised display description block at `0x941A`
+- **v1:** thumbnail at `0x171A`, `0x4000` bytes allocated
+- **v2:** thumbnail at `0x171A`, `0x3D00` bytes allocated (smaller allocation, same offset)
 
-Version 2 parsing is deferred; Version 1 covers the majority of content in a typical modded library.
+**Important correction:** `0x3D00` is a **size**, not an offset. The thumbnail field does not move between metadata versions. An earlier version of this document incorrectly stated that v2 "moves" the thumbnail to `0x3D00`.
+
+Version 2 also adds additional localised name/description blocks at higher offsets (`0x541A` and `0x941A`), but the primary metadata fields remain at the same offsets as version 1.
