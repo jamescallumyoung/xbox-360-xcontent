@@ -3,8 +3,10 @@ import { customElement, state } from 'lit/decorators.js'
 import '@shoelace-style/shoelace/dist/components/button/button.js'
 import '@shoelace-style/shoelace/dist/components/alert/alert.js'
 import '@shoelace-style/shoelace/dist/components/icon/icon.js'
-import { discoverPartitions, type Partition } from '@xbox360-utils/core'
+import '@shoelace-style/shoelace/dist/components/spinner/spinner.js'
+import { discoverPartitions, scanPartitions, type Partition, type ContentLibrary } from '@xbox360-utils/core'
 import './partition-picker.js'
+import './title-list.js'
 
 function showToast(message: string, variant: 'primary' | 'warning' | 'danger' = 'warning') {
   const alert = Object.assign(document.createElement('sl-alert'), {
@@ -21,7 +23,7 @@ function showToast(message: string, variant: 'primary' | 'warning' | 'danger' = 
 @customElement('app-shell')
 export class AppShell extends LitElement {
   static styles = css`
-    :host { display: block; padding: 2rem; max-width: 800px; margin: 0 auto; }
+    :host { display: block; padding: 2rem; max-width: 960px; margin: 0 auto; }
     h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 1.5rem; letter-spacing: 0.01em; }
     .instructions {
       margin-top: 1.25rem;
@@ -37,6 +39,14 @@ export class AppShell extends LitElement {
     }
     .instructions p { margin: 0 0 0.5rem; }
     .instructions p:last-child { margin: 0; }
+    .scanning {
+      margin-top: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      color: var(--sl-color-neutral-500);
+    }
     code {
       background: rgba(139, 92, 246, 0.12);
       border: 1px solid rgba(139, 92, 246, 0.2);
@@ -49,6 +59,8 @@ export class AppShell extends LitElement {
 
   @state() private partitions: Partition[] = []
   @state() private selectedPartitions: Partition[] = []
+  @state() private library: ContentLibrary | null = null
+  @state() private scanning = false
   @state() private picking = false
   @state() private unsupported = !('showDirectoryPicker' in window)
 
@@ -80,8 +92,16 @@ export class AppShell extends LitElement {
     }
   }
 
-  private onPartitionsConfirmed(e: CustomEvent<Partition[]>) {
+  private async onPartitionsConfirmed(e: CustomEvent<Partition[]>) {
     this.selectedPartitions = e.detail
+    this.scanning = true
+    try {
+      const library = await scanPartitions(this.selectedPartitions)
+      this.library = library
+      console.log('[app] ContentLibrary:', library)
+    } finally {
+      this.scanning = false
+    }
   }
 
   render() {
@@ -93,17 +113,30 @@ export class AppShell extends LitElement {
         : html`<sl-button ?loading=${this.picking} @click=${this.pickContentRoot}>Select content root</sl-button>`
       }
 
-      <div class="instructions">
-        <p>Select your <code>Content/</code> directory — found on the root of your Xbox 360's hard drive or USB device.</p>
-        <p>The app will scan the directory for partition folders (the <code>0000000000000000</code> public partition and any profile partitions) and let you choose which ones to include before scanning.</p>
-        <p>Any subdirectories that are not recognised as valid Xbox 360 partition directories will be automatically ignored and you will be notified.</p>
-      </div>
+      ${!this.library ? html`
+        <div class="instructions">
+          <p>Select your <code>Content/</code> directory — found on the root of your Xbox 360's hard drive or USB device.</p>
+          <p>The app will scan the directory for partition folders (the <code>0000000000000000</code> public partition and any profile partitions) and let you choose which ones to include before scanning.</p>
+          <p>Any subdirectories that are not recognised as valid Xbox 360 partition directories will be automatically ignored and you will be notified.</p>
+        </div>
+      ` : ''}
 
-      ${this.partitions.length > 0 ? html`
+      ${this.partitions.length > 0 && !this.library ? html`
         <partition-picker
           .partitions=${this.partitions}
           @partitions-confirmed=${this.onPartitionsConfirmed}
         ></partition-picker>
+      ` : ''}
+
+      ${this.scanning ? html`
+        <div class="scanning">
+          <sl-spinner></sl-spinner>
+          Scanning…
+        </div>
+      ` : ''}
+
+      ${this.library ? html`
+        <title-list .library=${this.library}></title-list>
       ` : ''}
     `
   }

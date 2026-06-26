@@ -52,6 +52,7 @@ export type Title = {
   hasDlc: boolean
   hasSaves: boolean
   hasOtherContent: boolean
+  hasCorruptContent: boolean
 }
 
 export type ContentLibrary = {

@@ -8,3 +8,4 @@ export type {
 
 export { discoverPartitions } from './partition.js'
 export type { DiscoverPartitionsResult } from './partition.js'
+export { scanPartitions } from './library-builder.js'
