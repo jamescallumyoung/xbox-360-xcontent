@@ -249,3 +249,40 @@ To identify a package programmatically:
 5. Check for sibling `.data/` directory: if present, this is an SVOD (GOD) package
 
 The presence of a `.data/` companion directory is a reliable indicator that a package is SVOD/GOD (content type 0x7000), since no other common content type uses this split structure.
+
+---
+
+## 9. Display Name and Description Layout
+
+Sourced from XboxInternals/Velocity `XContentHeader.cpp` and the Free60 STFS format reference.
+
+### Text metadata fields (Metadata Version 1)
+
+| Field | Offset | Size | Notes |
+|---|---|---|---|
+| Display name | `0x0411` | `0x900` | 18 locale slots × `0x80` bytes each |
+| Display description | `0x0D11` | `0x900` | 18 locale slots × `0x80` bytes each |
+| Publisher name | `0x1611` | `0x80` | Single slot |
+| Title name | `0x1691` | `0x80` | Single slot |
+| Transfer flags | `0x1711` | `0x01` | |
+| Thumbnail image | `0x171A` | `0x4000` | Raw PNG/JPEG blob — not read by this tool |
+
+### Locale slots
+
+Each display name and display description field contains **18 consecutive slots**, each `0x80` bytes (128 bytes = 64 UTF-16LE characters), null-padded to fill the slot. Slot 0 is English. The Xbox 360 kernel selects the slot matching the console's configured language at runtime.
+
+**Read strategy:** attempt slot 0 (English) first; fall back to the first non-empty slot if slot 0 is blank.
+
+### Required read size
+
+To cover all text metadata and stop before thumbnail data, a header read of **8 KB (`0x2000`)** is sufficient. The previously planned 4 KB read was too small — display description alone extends to `0x1611`.
+
+### Metadata Version 2
+
+When the `Metadata Version` field at `0x0348` is `2`, the layout differs:
+
+- Thumbnail area moves from `0x171A` to `0x3D00`
+- Additional localised display name block at `0x541A`
+- Additional localised display description block at `0x941A`
+
+Version 2 parsing is deferred; Version 1 covers the majority of content in a typical modded library.
