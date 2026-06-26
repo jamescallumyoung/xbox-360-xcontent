@@ -6,7 +6,6 @@ export type Partition = {
   kind: PartitionKind
   directoryName: string
   profileId: string | null  // null for public partitions
-  handle: FileSystemDirectoryHandle
 }
 
 export type ContentTypeName =
