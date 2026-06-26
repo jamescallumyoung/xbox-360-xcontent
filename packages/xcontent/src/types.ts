@@ -1,5 +1,14 @@
 export type SigningMagic = 'CON' | 'LIVE' | 'PIRS'
 
+export type PartitionKind = 'public' | 'profile'
+
+export type Partition = {
+  kind: PartitionKind
+  directoryName: string
+  profileId: string | null  // null for public partitions
+  handle: FileSystemDirectoryHandle
+}
+
 export type ContentTypeName =
   | 'SavedGame'
   | 'MarketPlaceContent'

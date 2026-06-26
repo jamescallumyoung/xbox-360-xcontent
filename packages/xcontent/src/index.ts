@@ -1,3 +1,5 @@
-export type { SigningMagic, ContentTypeName, XContentHeader } from './types.js'
+export type { SigningMagic, ContentTypeName, XContentHeader, PartitionKind, Partition } from './types.js'
 export type { ParseHeaderResult } from './parse-header/index.js'
 export { parseHeader } from './parse-header/index.js'
+export type { DiscoverPartitionsResult } from './partition/index.js'
+export { classifyPartitionName, discoverPartitions } from './partition/index.js'
