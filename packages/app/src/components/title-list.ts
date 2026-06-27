@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
-import type { ContentLibrary } from '@xbox360-utils/core'
+import type { PartitionScanResult } from 'xcontent-web'
 import './title-row.js'
 
 @customElement('title-list')
@@ -31,7 +31,7 @@ export class TitleList extends LitElement {
     }
   `
 
-  @property({ attribute: false }) library!: ContentLibrary
+  @property({ attribute: false }) library!: PartitionScanResult
 
   render() {
     const { titles } = this.library

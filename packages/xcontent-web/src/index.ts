@@ -1,0 +1,5 @@
+export type { SigningMagic, ContentTypeName, PartitionKind, Partition } from 'xcontent'
+export type { TitleXContent, PartitionScanResult } from './types.js'
+export type { DiscoverPartitionsResult } from './partition-discovery/index.js'
+export { discoverPartitions } from './partition-discovery/index.js'
+export { buildTitle, scanPartitions } from './partition-scanner/index.js'

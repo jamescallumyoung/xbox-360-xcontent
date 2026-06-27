@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js'
 import '@shoelace-style/shoelace/dist/components/checkbox/checkbox.js'
 import '@shoelace-style/shoelace/dist/components/button/button.js'
 import '@shoelace-style/shoelace/dist/components/badge/badge.js'
-import type { Partition } from '@xbox360-utils/core'
+import type { Partition } from 'xcontent-web'
 
 @customElement('partition-picker')
 export class PartitionPicker extends LitElement {
@@ -54,8 +54,8 @@ export class PartitionPicker extends LitElement {
               ?checked=${this.selected.has(p.directoryName)}
               @sl-change=${(e: CustomEvent) => this.toggle(p.directoryName, (e.target as HTMLInputElement).checked)}
             ></sl-checkbox>
-            <sl-badge variant=${p.isPublic ? 'primary' : 'neutral'}>
-              ${p.isPublic ? 'Public' : 'Profile'}
+            <sl-badge variant=${p.kind === 'public' ? 'primary' : 'neutral'}>
+              ${p.kind === 'public' ? 'Public' : 'Profile'}
             </sl-badge>
             <code>${p.directoryName}</code>
           </div>

@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import '@shoelace-style/shoelace/dist/components/badge/badge.js'
-import type { Title, ContentTypeName } from '@xbox360-utils/core'
+import type { TitleXContent, ContentTypeName } from 'xcontent-web'
 
 const GAME_FORMAT_LABELS: Partial<Record<ContentTypeName, string>> = {
   GameOnDemand: 'GOD',
@@ -56,7 +56,7 @@ export class TitleRow extends LitElement {
     }
   `
 
-  @property({ attribute: false }) item!: Title
+  @property({ attribute: false }) item!: TitleXContent
 
   render() {
     const t = this.item

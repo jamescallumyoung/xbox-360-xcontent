@@ -4,7 +4,7 @@ import '@shoelace-style/shoelace/dist/components/button/button.js'
 import '@shoelace-style/shoelace/dist/components/alert/alert.js'
 import '@shoelace-style/shoelace/dist/components/icon/icon.js'
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js'
-import { discoverPartitions, scanPartitions, type Partition, type ContentLibrary } from '@xbox360-utils/core'
+import { discoverPartitions, scanPartitions, type Partition, type PartitionScanResult } from 'xcontent-web'
 import './partition-picker.js'
 import './title-list.js'
 
@@ -57,12 +57,15 @@ export class AppShell extends LitElement {
     }
   `
 
-  @state() private partitions: Partition[] = []
-  @state() private selectedPartitions: Partition[] = []
-  @state() private library: ContentLibrary | null = null
+  @state() private partitionTuples: [Partition, FileSystemDirectoryHandle][] = []
+  @state() private library: PartitionScanResult | null = null
   @state() private scanning = false
   @state() private picking = false
   @state() private unsupported = !('showDirectoryPicker' in window)
+
+  private get partitions(): Partition[] {
+    return this.partitionTuples.map(([p]) => p)
+  }
 
   private async pickContentRoot() {
     if (!('showDirectoryPicker' in window)) return
@@ -71,8 +74,8 @@ export class AppShell extends LitElement {
     try {
       const handle = await picker.showDirectoryPicker()
       const { partitions, ignoredCount } = await discoverPartitions(handle)
-      this.partitions = partitions
-      this.selectedPartitions = []
+      this.partitionTuples = partitions
+      this.library = null
 
       if (ignoredCount > 0 && partitions.length === 0) {
         showToast(
@@ -93,12 +96,12 @@ export class AppShell extends LitElement {
   }
 
   private async onPartitionsConfirmed(e: CustomEvent<Partition[]>) {
-    this.selectedPartitions = e.detail
+    const selectedNames = new Set(e.detail.map(p => p.directoryName))
+    const selectedTuples = this.partitionTuples.filter(([p]) => selectedNames.has(p.directoryName))
     this.scanning = true
     try {
-      const library = await scanPartitions(this.selectedPartitions)
-      this.library = library
-      console.log('[app] ContentLibrary:', library)
+      this.library = await scanPartitions(selectedTuples)
+      console.log('[app] PartitionScanResult:', this.library)
     } finally {
       this.scanning = false
     }

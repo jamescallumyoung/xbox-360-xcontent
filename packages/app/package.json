@@ -8,7 +8,7 @@
     "dev": "node build.mjs --dev"
   },
   "dependencies": {
-    "@xbox360-utils/core": "workspace:*",
+    "xcontent-web": "workspace:*",
     "@shoelace-style/shoelace": "^2.20.1",
     "lit": "^3.3.3"
   },
