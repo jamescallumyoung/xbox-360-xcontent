@@ -4,29 +4,30 @@ import '@shoelace-style/shoelace/dist/components/button/button.js'
 import '@shoelace-style/shoelace/dist/components/alert/alert.js'
 import '@shoelace-style/shoelace/dist/components/icon/icon.js'
 import '@shoelace-style/shoelace/dist/components/spinner/spinner.js'
+import '@shoelace-style/shoelace/dist/components/tab-group/tab-group.js'
+import '@shoelace-style/shoelace/dist/components/tab/tab.js'
+import '@shoelace-style/shoelace/dist/components/tab-panel/tab-panel.js'
 import { discoverPartitions, scanPartitions, type Partition, type PartitionScanResult } from 'xcontent-web'
+import { showToast } from '../utils/toast.js'
 import './partition-picker.js'
 import './title-list.js'
-
-function showToast(message: string, variant: 'primary' | 'warning' | 'danger' = 'warning') {
-  const alert = Object.assign(document.createElement('sl-alert'), {
-    variant,
-    closable: true,
-    duration: 10000,
-  })
-  alert.innerHTML = message
-  document.body.appendChild(alert)
-  // @ts-ignore — .toast() is present on sl-alert at runtime
-  return alert.toast()
-}
+import './header-inspector.js'
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
   static styles = css`
     :host { display: block; padding: 2rem; max-width: 960px; margin: 0 auto; }
     h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 1.5rem; letter-spacing: 0.01em; }
+
+    sl-tab-group {
+      --track-color: var(--app-surface-border);
+    }
+
+    sl-tab-panel {
+      padding-top: 1.25rem;
+    }
+
     .instructions {
-      margin-top: 1.25rem;
       padding: 1rem 1.25rem;
       background: var(--app-surface-bg);
       border: 1px solid var(--app-surface-border);
@@ -39,6 +40,7 @@ export class AppShell extends LitElement {
     }
     .instructions p { margin: 0 0 0.5rem; }
     .instructions p:last-child { margin: 0; }
+
     .scanning {
       margin-top: 1.25rem;
       display: flex;
@@ -47,6 +49,7 @@ export class AppShell extends LitElement {
       font-size: 0.875rem;
       color: var(--sl-color-neutral-500);
     }
+
     code {
       background: rgba(139, 92, 246, 0.12);
       border: 1px solid rgba(139, 92, 246, 0.2);
@@ -107,17 +110,15 @@ export class AppShell extends LitElement {
     }
   }
 
-  render() {
+  private renderLibraryTab() {
     return html`
-      <h1>Xbox 360 Content Utils</h1>
-
       ${this.unsupported
         ? html`<p>This browser does not support the File System Access API. Use Chrome or Edge.</p>`
         : html`<sl-button ?loading=${this.picking} @click=${this.pickContentRoot}>Select content root</sl-button>`
       }
 
       ${!this.library ? html`
-        <div class="instructions">
+        <div class="instructions" style="margin-top:1.25rem">
           <p>Select your <code>Content/</code> directory — found on the root of your Xbox 360's hard drive or USB device.</p>
           <p>The app will scan the directory for partition folders (the <code>0000000000000000</code> public partition and any profile partitions) and let you choose which ones to include before scanning.</p>
           <p>Any subdirectories that are not recognised as valid Xbox 360 partition directories will be automatically ignored and you will be notified.</p>
@@ -128,6 +129,7 @@ export class AppShell extends LitElement {
         <partition-picker
           .partitions=${this.partitions}
           @partitions-confirmed=${this.onPartitionsConfirmed}
+          style="display:block;margin-top:1.25rem"
         ></partition-picker>
       ` : ''}
 
@@ -139,8 +141,21 @@ export class AppShell extends LitElement {
       ` : ''}
 
       ${this.library ? html`
-        <title-list .library=${this.library}></title-list>
+        <title-list .library=${this.library} style="display:block;margin-top:1.25rem"></title-list>
       ` : ''}
+    `
+  }
+
+  render() {
+    return html`
+      <h1>Xbox 360 Content Utils</h1>
+      <sl-tab-group>
+        <sl-tab slot="nav" panel="library">Library</sl-tab>
+        <sl-tab slot="nav" panel="inspect">Inspect File</sl-tab>
+
+        <sl-tab-panel name="library">${this.renderLibraryTab()}</sl-tab-panel>
+        <sl-tab-panel name="inspect"><header-inspector></header-inspector></sl-tab-panel>
+      </sl-tab-group>
     `
   }
 }
