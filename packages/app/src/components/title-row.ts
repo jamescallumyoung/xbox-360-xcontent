@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import '@shoelace-style/shoelace/dist/components/badge/badge.js'
+import '@shoelace-style/shoelace/dist/components/button/button.js'
 import type { TitleXContent, ContentTypeName } from 'xcontent-web'
 
 const GAME_FORMAT_LABELS: Partial<Record<ContentTypeName, string>> = {
@@ -54,9 +55,23 @@ export class TitleRow extends LitElement {
       justify-content: flex-end;
       flex-shrink: 0;
     }
+
+    .toggle {
+      flex-shrink: 0;
+      margin-left: 0.5rem;
+    }
   `
 
   @property({ attribute: false }) item!: TitleXContent
+  @property({ type: Boolean }) selected = false
+
+  private toggle() {
+    this.dispatchEvent(new CustomEvent('title-toggle', {
+      detail: this.item.titleIdHex,
+      bubbles: true,
+      composed: true,
+    }))
+  }
 
   render() {
     const t = this.item
@@ -84,6 +99,12 @@ export class TitleRow extends LitElement {
             </sl-badge>
           `)}
         </div>
+        <sl-button
+          class="toggle"
+          size="small"
+          variant=${this.selected ? 'primary' : 'default'}
+          @click=${this.toggle}
+        >${this.selected ? '✓ Added' : '+ Add'}</sl-button>
       </div>
     `
   }

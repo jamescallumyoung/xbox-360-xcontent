@@ -1,5 +1,5 @@
-import { LitElement, html, css } from 'lit'
-import { customElement, state } from 'lit/decorators.js'
+import { LitElement, html, css, nothing } from 'lit'
+import { customElement, state, query } from 'lit/decorators.js'
 import '@shoelace-style/shoelace/dist/components/button/button.js'
 import '@shoelace-style/shoelace/dist/components/alert/alert.js'
 import '@shoelace-style/shoelace/dist/components/icon/icon.js'
@@ -7,11 +7,13 @@ import '@shoelace-style/shoelace/dist/components/spinner/spinner.js'
 import '@shoelace-style/shoelace/dist/components/tab-group/tab-group.js'
 import '@shoelace-style/shoelace/dist/components/tab/tab.js'
 import '@shoelace-style/shoelace/dist/components/tab-panel/tab-panel.js'
-import { discoverPartitions, scanPartitions, type Partition, type PartitionScanResult } from 'xcontent-web'
+import { discoverPartitions, scanPartitions, type Partition, type PartitionScanResult, type TitleXContent } from 'xcontent-web'
 import { showToast } from '../utils/toast.js'
 import './partition-picker.js'
 import './title-list.js'
 import './header-inspector.js'
+import './copy-modal.js'
+import type { CopyModal } from './copy-modal.js'
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -58,13 +60,44 @@ export class AppShell extends LitElement {
       color: var(--sl-color-primary-400);
       font-size: 0.8em;
     }
+
+    .picker-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .picker-group {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+
+    .dir-label {
+      font-size: 0.8125rem;
+      font-family: var(--sl-font-mono);
+      color: var(--sl-color-neutral-500);
+    }
+
+    .copy-fab {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      z-index: 100;
+    }
   `
 
+  @state() private sourceHandle: FileSystemDirectoryHandle | null = null
+  @state() private targetHandle: FileSystemDirectoryHandle | null = null
   @state() private partitionTuples: [Partition, FileSystemDirectoryHandle][] = []
   @state() private library: PartitionScanResult | null = null
+  @state() private selectedTitles: TitleXContent[] = []
   @state() private scanning = false
   @state() private picking = false
   @state() private unsupported = !('showDirectoryPicker' in window)
+
+  @query('copy-modal') private copyModal!: CopyModal
 
   private get partitions(): Partition[] {
     return this.partitionTuples.map(([p]) => p)
@@ -77,8 +110,10 @@ export class AppShell extends LitElement {
     try {
       const handle = await picker.showDirectoryPicker()
       const { partitions, ignoredCount } = await discoverPartitions(handle)
+      this.sourceHandle = handle
       this.partitionTuples = partitions
       this.library = null
+      this.selectedTitles = []
 
       if (ignoredCount > 0 && partitions.length === 0) {
         showToast(
@@ -98,10 +133,26 @@ export class AppShell extends LitElement {
     }
   }
 
+  private async pickTargetRoot() {
+    if (!('showDirectoryPicker' in window)) return
+    const picker = window as Window & { showDirectoryPicker(): Promise<FileSystemDirectoryHandle> }
+    try {
+      const handle = await picker.showDirectoryPicker()
+      for await (const _ of handle.values()) {
+        showToast('Target directory must be empty. Select an empty folder.', 'danger')
+        return
+      }
+      this.targetHandle = handle
+    } catch {
+      // user cancelled or permission denied
+    }
+  }
+
   private async onPartitionsConfirmed(e: CustomEvent<Partition[]>) {
     const selectedNames = new Set(e.detail.map(p => p.directoryName))
     const selectedTuples = this.partitionTuples.filter(([p]) => selectedNames.has(p.directoryName))
     this.scanning = true
+    this.selectedTitles = []
     try {
       this.library = await scanPartitions(selectedTuples)
       console.log('[app] PartitionScanResult:', this.library)
@@ -110,18 +161,38 @@ export class AppShell extends LitElement {
     }
   }
 
+  private onSelectionChanged(e: CustomEvent<TitleXContent[]>) {
+    this.selectedTitles = e.detail
+  }
+
+  private openCopyModal() {
+    if (!this.targetHandle || this.selectedTitles.length === 0) return
+    void this.copyModal.open(this.selectedTitles, this.partitionTuples, this.targetHandle)
+  }
+
   private renderLibraryTab() {
     return html`
       ${this.unsupported
         ? html`<p>This browser does not support the File System Access API. Use Chrome or Edge.</p>`
-        : html`<sl-button ?loading=${this.picking} @click=${this.pickContentRoot}>Select content root</sl-button>`
+        : html`
+          <div class="picker-row">
+            <div class="picker-group">
+              <sl-button ?loading=${this.picking} @click=${this.pickContentRoot}>Select source</sl-button>
+              ${this.sourceHandle ? html`<span class="dir-label">${this.sourceHandle.name}</span>` : nothing}
+            </div>
+            <div class="picker-group">
+              <sl-button @click=${this.pickTargetRoot}>Select target</sl-button>
+              ${this.targetHandle ? html`<span class="dir-label">${this.targetHandle.name}</span>` : nothing}
+            </div>
+          </div>
+        `
       }
 
       ${!this.library ? html`
         <div class="instructions" style="margin-top:1.25rem">
-          <p>Select your <code>Content/</code> directory — found on the root of your Xbox 360's hard drive or USB device.</p>
-          <p>The app will scan the directory for partition folders (the <code>0000000000000000</code> public partition and any profile partitions) and let you choose which ones to include before scanning.</p>
-          <p>Any subdirectories that are not recognised as valid Xbox 360 partition directories will be automatically ignored and you will be notified.</p>
+          <p>Select your <code>Content/</code> directory as the <strong>source</strong> — found on the root of your Xbox 360's hard drive or USB device.</p>
+          <p>Select an empty directory as the <strong>target</strong> — titles you choose will be copied there, preserving the full partition structure.</p>
+          <p>After scanning, toggle titles to add them to the copy queue, then click <strong>Copy Titles</strong>.</p>
         </div>
       ` : ''}
 
@@ -141,12 +212,19 @@ export class AppShell extends LitElement {
       ` : ''}
 
       ${this.library ? html`
-        <title-list .library=${this.library} style="display:block;margin-top:1.25rem"></title-list>
+        <title-list
+          .library=${this.library}
+          @selection-changed=${this.onSelectionChanged}
+          style="display:block"
+        ></title-list>
       ` : ''}
     `
   }
 
   render() {
+    const copyCount = this.selectedTitles.length
+    const copyLabel = copyCount === 0 ? 'Copy Titles' : `Copy ${copyCount} Title${copyCount === 1 ? '' : 's'}`
+
     return html`
       <h1>Xbox 360 Content Utils</h1>
       <sl-tab-group>
@@ -156,6 +234,18 @@ export class AppShell extends LitElement {
         <sl-tab-panel name="library">${this.renderLibraryTab()}</sl-tab-panel>
         <sl-tab-panel name="inspect"><header-inspector></header-inspector></sl-tab-panel>
       </sl-tab-group>
+
+      ${this.library !== null ? html`
+        <div class="copy-fab">
+          <sl-button
+            variant="primary"
+            ?disabled=${copyCount === 0 || this.targetHandle === null}
+            @click=${this.openCopyModal}
+          >${copyLabel}</sl-button>
+        </div>
+      ` : nothing}
+
+      <copy-modal></copy-modal>
     `
   }
 }

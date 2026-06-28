@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
-import type { PartitionScanResult } from 'xcontent-web'
+import { customElement, property, state } from 'lit/decorators.js'
+import type { PartitionScanResult, TitleXContent } from 'xcontent-web'
 import './title-row.js'
 
 @customElement('title-list')
@@ -32,6 +32,30 @@ export class TitleList extends LitElement {
   `
 
   @property({ attribute: false }) library!: PartitionScanResult
+  @state() private selectedIds = new Set<string>()
+
+  willUpdate(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('library')) {
+      this.selectedIds = new Set()
+      this.dispatchEvent(new CustomEvent<TitleXContent[]>('selection-changed', {
+        detail: [],
+        bubbles: true,
+        composed: true,
+      }))
+    }
+  }
+
+  private handleTitleToggle(e: CustomEvent<string>) {
+    e.stopPropagation()
+    const next = new Set(this.selectedIds)
+    if (next.has(e.detail)) next.delete(e.detail); else next.add(e.detail)
+    this.selectedIds = next
+    this.dispatchEvent(new CustomEvent<TitleXContent[]>('selection-changed', {
+      detail: this.library.titles.filter(t => next.has(t.titleIdHex)),
+      bubbles: true,
+      composed: true,
+    }))
+  }
 
   render() {
     const { titles } = this.library
@@ -39,7 +63,13 @@ export class TitleList extends LitElement {
       <div class="header">${titles.length} title${titles.length === 1 ? '' : 's'} found</div>
       ${titles.length === 0
         ? html`<div class="empty">No titles were found in the selected partitions.</div>`
-        : titles.map(t => html`<title-row .item=${t}></title-row>`)
+        : html`
+          <div @title-toggle=${this.handleTitleToggle}>
+            ${titles.map(t => html`
+              <title-row .item=${t} .selected=${this.selectedIds.has(t.titleIdHex)}></title-row>
+            `)}
+          </div>
+        `
       }
     `
   }
