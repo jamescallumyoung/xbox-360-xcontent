@@ -1837,7 +1837,31 @@
     "5A4507E0": "Iron Sky: Invasion",
     "5A4607D1": "Power Gig: Rise of the SixString",
     "5A4907D1": "Rambo: The Video Game",
-    "5A5007D1": "Minute to Win It"
+    "5A5007D1": "Minute to Win It",
+
+    "FFFE07D1": "** Xbox 360 Dashboard ★",
+    "FFFE07DF": "** Optional Media Update ★",
+    "4D5308CE": "Halo Waypoint ★",
+    "4D530901": "Game Room ★",
+    "4D5309CF": "Halo Collection (Avatar Items) ★",
+    "4E4D8833": "Enslaved ★",
+    "544A07D1": "Demand 5 ★",
+    "555307E5": "Naruto: Rise of a Ninja ★",
+    "55538854": "Tom Clancy's H.A.W.X.® 2 ★",
+    "584107DE": "Worms ★",
+    "5841083F": "Bomberman LIVE ★",
+    "58410869": "SWOS ★",
+    "58410B45": "Section 8®: Prejudice™ ★",
+    "584111F7": "Minecraft: Xbox 360 Edition ★",
+    "584807E1": "Facebook ★",
+    "584807E3": "Last.fm ★",
+    "5848085B": "Xbox Music and Video ★",
+    "58480861": "Sky ★",
+    "58480880": "Internet Explorer ★",
+    "5848085B": "Xbox Music and Video ★",
+    "584A07D1": "1 vs 100 ★",
+    "584A07DC": "Primetime 1vs100 ★",
+    "584D07D1": "Avatar Editor ★"
   },
   "publishers": {
     "3247": "Boost On",
@@ -1979,8 +2003,9 @@
     "5A50": "Zoo Publishing",
     
     "5841": "** Xbox Live Arcade",
-    "5857": "?? Gamer pictures, themes, and promo content / or Sega",
+    "5857": "?? Gamer pictures, themes, and promo content / sega",
+    "5858": "** Gamer pictures, themes, and promo content",
     "FFFE": "** Xbox System",
-    "5848": "** Xbox System"
+    "5848": "** Apps"
   }
 }
