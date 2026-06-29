@@ -1,4 +1,5 @@
-import type { Partition } from 'xcontent'
+import type { Partition, ContentTypeName } from 'xcontent'
+import { CONTENT_TYPE_HEX } from 'xcontent'
 import type { TitleXContent } from '../types.js'
 
 export type CopyEvent =
@@ -37,7 +38,12 @@ export async function copyTitles(
   targetRoot: FileSystemDirectoryHandle,
   onEvent: (event: CopyEvent) => void,
   signal: AbortSignal,
+  allowedContentTypeNames?: ReadonlySet<ContentTypeName>,
 ): Promise<void> {
+  const allowedHexes = allowedContentTypeNames
+    ? new Set([...allowedContentTypeNames].map(n => CONTENT_TYPE_HEX.get(n)).filter((h): h is string => h !== undefined))
+    : null
+  const knownHexes = allowedHexes ? new Set(CONTENT_TYPE_HEX.values()) : null
   const total = titles.length
   let completed = 0
   onEvent({ type: 'progress', completed: 0, total })
@@ -61,6 +67,10 @@ export async function copyTitles(
       for await (const entry of sourceTitleDir.values()) {
         if (entry.kind !== 'directory') continue
         const contentTypeName = entry.name
+        if (allowedHexes && knownHexes) {
+          const hexLower = contentTypeName.toLowerCase()
+          if (knownHexes.has(hexLower) && !allowedHexes.has(hexLower)) continue
+        }
 
         console.log(
           `copying ${title.displayName} ${contentTypeName} from ${partition.directoryName}/${title.titleIdHex}/${contentTypeName}`,

@@ -35,6 +35,11 @@ const CONTENT_TYPE_MAP: ReadonlyMap<number, ContentTypeName> = new Map([
   [0x02000000, 'CommunityGame'],
 ])
 
+/** Maps each known ContentTypeName to its 8-character lowercase hex directory name. */
+export const CONTENT_TYPE_HEX: ReadonlyMap<ContentTypeName, string> = new Map(
+  [...CONTENT_TYPE_MAP.entries()].map(([value, name]) => [name, value.toString(16).padStart(8, '0')])
+)
+
 /** Reads the content type uint32 at offset 0x0344 and maps it to a known ContentTypeName (or 'Unknown'). Returns null if the buffer is too short. */
 export function parseContentType(bytes: Uint8Array): { value: number; name: ContentTypeName } | null {
   if (bytes.length < 0x0348) return null

@@ -1,6 +1,6 @@
 export type { SigningMagic, ContentTypeName, PartitionKind, Partition, XContentHeader } from 'xcontent'
 export type { ParseHeaderResult } from 'xcontent'
-export { parseHeader } from 'xcontent'
+export { parseHeader, CONTENT_TYPE_HEX } from 'xcontent'
 export type { TitleXContent, PartitionScanResult } from './types.js'
 export type { DiscoverPartitionsResult } from './partition-discovery/index.js'
 export { discoverPartitions } from './partition-discovery/index.js'

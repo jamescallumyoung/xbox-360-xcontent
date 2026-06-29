@@ -83,12 +83,6 @@ export class AppShell extends LitElement {
       color: var(--sl-color-neutral-500);
     }
 
-    .copy-fab {
-      position: fixed;
-      bottom: 1.5rem;
-      left: 1.5rem;
-      z-index: 100;
-    }
   `
 
   @state() private sourceHandle: FileSystemDirectoryHandle | null = null
@@ -170,10 +164,13 @@ export class AppShell extends LitElement {
 
   private openCopyModal() {
     if (!this.targetHandle || this.selectedTitles.length === 0) return
-    void this.copyModal.open(this.selectedTitles, this.partitionTuples, this.targetHandle)
+    this.copyModal.open(this.selectedTitles, this.partitionTuples, this.targetHandle)
   }
 
   private renderLibraryTab() {
+    const copyCount = this.selectedTitles.length
+    const copyLabel = copyCount === 0 ? 'Copy Titles' : `Copy ${copyCount} Title${copyCount === 1 ? '' : 's'}`
+
     return html`
       ${this.unsupported
         ? html`<p>This browser does not support the File System Access API. Use Chrome or Edge.</p>`
@@ -187,6 +184,13 @@ export class AppShell extends LitElement {
               <sl-button @click=${this.pickTargetRoot}>Select target</sl-button>
               ${this.targetHandle ? html`<span class="dir-label">${this.targetHandle.name}</span>` : nothing}
             </div>
+            ${this.library !== null ? html`
+              <sl-button
+                variant="primary"
+                ?disabled=${copyCount === 0 || this.targetHandle === null}
+                @click=${this.openCopyModal}
+              >${copyLabel}</sl-button>
+            ` : nothing}
           </div>
         `
       }
@@ -225,9 +229,6 @@ export class AppShell extends LitElement {
   }
 
   render() {
-    const copyCount = this.selectedTitles.length
-    const copyLabel = copyCount === 0 ? 'Copy Titles' : `Copy ${copyCount} Title${copyCount === 1 ? '' : 's'}`
-
     return html`
       <h1>Xbox 360 Content Utils</h1>
       <sl-tab-group>
@@ -241,16 +242,6 @@ export class AppShell extends LitElement {
         <sl-tab-panel name="cleanup"><cleanup-tab></cleanup-tab></sl-tab-panel>
         <sl-tab-panel name="inspect"><header-inspector></header-inspector></sl-tab-panel>
       </sl-tab-group>
-
-      ${this.library !== null ? html`
-        <div class="copy-fab">
-          <sl-button
-            variant="primary"
-            ?disabled=${copyCount === 0 || this.targetHandle === null}
-            @click=${this.openCopyModal}
-          >${copyLabel}</sl-button>
-        </div>
-      ` : nothing}
 
       <copy-modal></copy-modal>
     `

@@ -1,6 +1,7 @@
 import type { XContentHeader } from '../types.js'
 import { parseMagic } from './magic.js'
 import { parseContentType } from './content-type.js'
+export { CONTENT_TYPE_HEX } from './content-type.js'
 import { parseTitleId } from './title-id.js'
 import { parseMetadataVersion } from './metadata-version.js'
 import { parseDisplayNames } from './display-names.js'
