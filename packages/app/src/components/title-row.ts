@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js'
 import '@shoelace-style/shoelace/dist/components/badge/badge.js'
 import '@shoelace-style/shoelace/dist/components/button/button.js'
 import type { TitleXContent, ContentTypeName } from 'xcontent-web'
+import retailTitleIds from '../../../../data/retail-title-ids.json'
 
 const GAME_FORMAT_LABELS: Partial<Record<ContentTypeName, string>> = {
   GameOnDemand: 'GOD',
@@ -77,12 +78,13 @@ export class TitleRow extends LitElement {
     const t = this.item
 
     const gameFormats = [...t.contentTypes].filter(ct => GAME_FORMAT_NAMES.has(ct))
+    const publisher = retailTitleIds.publishers[t.titleIdHex.slice(0, 4) as keyof typeof retailTitleIds.publishers]
 
     return html`
       <div class="row">
         <div class="meta">
           <div class="name">${t.displayName}</div>
-          <div class="title-id">${t.titleIdHex}</div>
+          <div class="title-id">${t.titleIdHex}${publisher ? ` – ${publisher}` : ''}</div>
         </div>
         <div class="badges">
           ${gameFormats.map(ct => html`
@@ -93,6 +95,7 @@ export class TitleRow extends LitElement {
           ${t.hasSaves ? html`<sl-badge variant="neutral">Saves</sl-badge>` : ''}
           ${t.hasOtherContent ? html`<sl-badge variant="neutral">Other</sl-badge>` : ''}
           ${t.hasCorruptContent ? html`<sl-badge variant="danger">Corrupt</sl-badge>` : ''}
+          ${t.hasInternalError ? html`<sl-badge variant="warning">Error</sl-badge>` : ''}
           ${[...t.signingTypes].map(magic => html`
             <sl-badge variant=${magic === 'LIVE' ? 'success' : magic === 'CON' ? 'warning' : 'neutral'}>
               ${magic}

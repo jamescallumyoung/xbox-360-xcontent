@@ -24,18 +24,33 @@ function makeHeader(overrides: Partial<XContentHeader> = {}): XContentHeader {
 }
 
 describe('buildTitle', () => {
-  it('uses the first non-empty display name as the display name', () => {
-    const result = buildTitle('4D530808', [makeHeader({ displayNames: ['Halo Wars'] })], false)
+  it('uses the first non-empty display name from a game-format header', () => {
+    const result = buildTitle('4D530808', [makeHeader({ displayNames: ['Halo Wars'] })], false, false)
     expect(result.displayName).toBe('Halo Wars')
   })
 
+  it('prefers a game-format header display name over a non-game-format one', () => {
+    const result = buildTitle('4D530808', [
+      makeHeader({ contentType: 0x00000002, contentTypeName: 'MarketPlaceContent', displayNames: ['Honor Guard Wraith'] }),
+      makeHeader({ contentType: 0x00007000, contentTypeName: 'GameOnDemand', displayNames: ['Halo Wars'] }),
+    ], false, false)
+    expect(result.displayName).toBe('Halo Wars')
+  })
+
+  it('falls back to titleIdHex when there are no game-format headers', () => {
+    const result = buildTitle('4D530808', [
+      makeHeader({ contentType: 0x00000002, contentTypeName: 'MarketPlaceContent', displayNames: ['Honor Guard Wraith'] }),
+    ], false, false)
+    expect(result.displayName).toBe('4D530808')
+  })
+
   it('falls back to titleIdHex when no display names are present', () => {
-    const result = buildTitle('4D530808', [makeHeader({ displayNames: [] })], false)
+    const result = buildTitle('4D530808', [makeHeader({ displayNames: [] })], false, false)
     expect(result.displayName).toBe('4D530808')
   })
 
   it('falls back to titleIdHex when headers array is empty', () => {
-    const result = buildTitle('4D530808', [], false)
+    const result = buildTitle('4D530808', [], false, false)
     expect(result.displayName).toBe('4D530808')
     expect(result.signingTypes.size).toBe(0)
     expect(result.contentTypes.size).toBe(0)
@@ -46,47 +61,52 @@ describe('buildTitle', () => {
       makeHeader({ magic: 'LIVE' }),
       makeHeader({ magic: 'CON' }),
     ]
-    const result = buildTitle('4D530808', headers, false)
+    const result = buildTitle('4D530808', headers, false, false)
     expect(result.signingTypes).toContain('LIVE')
     expect(result.signingTypes).toContain('CON')
   })
 
   it('sets gameIsPresent for game format content types', () => {
-    expect(buildTitle('01234567', [makeHeader({ contentType: 0x00007000 })], false).gameIsPresent).toBe(true)
-    expect(buildTitle('01234567', [makeHeader({ contentType: 0x000D0000 })], false).gameIsPresent).toBe(true)
-    expect(buildTitle('01234567', [makeHeader({ contentType: 0x00000001 })], false).gameIsPresent).toBe(false)
+    expect(buildTitle('01234567', [makeHeader({ contentType: 0x00007000 })], false, false).gameIsPresent).toBe(true)
+    expect(buildTitle('01234567', [makeHeader({ contentType: 0x000D0000 })], false, false).gameIsPresent).toBe(true)
+    expect(buildTitle('01234567', [makeHeader({ contentType: 0x00000001 })], false, false).gameIsPresent).toBe(false)
   })
 
   it('sets hasTitleUpdate for Installer content type', () => {
-    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x000B0000, contentTypeName: 'Installer' })], false)
+    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x000B0000, contentTypeName: 'Installer' })], false, false)
     expect(result.hasTitleUpdate).toBe(true)
     expect(result.gameIsPresent).toBe(false)
   })
 
   it('sets hasDlc for MarketPlaceContent type', () => {
-    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x00000002, contentTypeName: 'MarketPlaceContent' })], false)
+    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x00000002, contentTypeName: 'MarketPlaceContent' })], false, false)
     expect(result.hasDlc).toBe(true)
   })
 
   it('sets hasSaves for SavedGame type', () => {
-    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x00000001, contentTypeName: 'SavedGame' })], false)
+    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x00000001, contentTypeName: 'SavedGame' })], false, false)
     expect(result.hasSaves).toBe(true)
   })
 
   it('sets hasOtherContent when none of the categorised types match', () => {
-    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x00020000, contentTypeName: 'GamerPicture' })], false)
+    const result = buildTitle('4D530808', [makeHeader({ contentType: 0x00020000, contentTypeName: 'GamerPicture' })], false, false)
     expect(result.hasOtherContent).toBe(true)
     expect(result.gameIsPresent).toBe(false)
     expect(result.hasDlc).toBe(false)
   })
 
   it('propagates hasCorruptContent', () => {
-    expect(buildTitle('4D530808', [], true).hasCorruptContent).toBe(true)
-    expect(buildTitle('4D530808', [], false).hasCorruptContent).toBe(false)
+    expect(buildTitle('4D530808', [], true, false).hasCorruptContent).toBe(true)
+    expect(buildTitle('4D530808', [], false, false).hasCorruptContent).toBe(false)
+  })
+
+  it('propagates hasInternalError', () => {
+    expect(buildTitle('4D530808', [], false, true).hasInternalError).toBe(true)
+    expect(buildTitle('4D530808', [], false, false).hasInternalError).toBe(false)
   })
 
   it('normalises titleIdHex to uppercase', () => {
-    const result = buildTitle('4d530808', [], false)
+    const result = buildTitle('4d530808', [], false, false)
     expect(result.titleIdHex).toBe('4D530808')
   })
 })

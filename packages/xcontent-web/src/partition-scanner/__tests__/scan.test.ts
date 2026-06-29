@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Partition } from 'xcontent'
-import { scanPartitions } from '../scan.js'
+import { scanPartitions, READ_SIZE } from '../scan.js'
 
 const fixtureDir = join(fileURLToPath(new URL('.', import.meta.url)), '../../../../xcontent/src/parse-header/__tests__/fixtures')
 
@@ -64,13 +64,14 @@ describe('scanPartitions', () => {
     expect(result.titles).toHaveLength(1)
     const title = result.titles[0]
     expect(title.titleIdHex).toBe('4D530808')
-    expect(title.displayName).toBe('Unique unit: Honor Guard Wraith')
+    expect(title.displayName).toBe('4D530808')
     expect(title.hasDlc).toBe(true)
     expect(title.gameIsPresent).toBe(false)
     expect(title.hasCorruptContent).toBe(false)
+    expect(title.hasInternalError).toBe(false)
   })
 
-  it('marks hasCorruptContent when a file cannot be read', async () => {
+  it('marks hasInternalError when a file cannot be read after retry', async () => {
     const badFile: FileSystemFileHandle = {
       kind: 'file',
       async getFile() { throw new Error('permission denied') },
@@ -80,17 +81,28 @@ describe('scanPartitions', () => {
     ])
     const result = await scanPartitions([[partition, handle]])
     expect(result.titles).toHaveLength(1)
+    expect(result.titles[0].hasInternalError).toBe(true)
+    expect(result.titles[0].hasCorruptContent).toBe(false)
+  })
+
+  it('marks hasCorruptContent when a file is readable but its header is invalid', async () => {
+    const handle = makeDir([
+      ['4D530808', makeTitleDir('00000002', new Uint8Array(READ_SIZE))],
+    ])
+    const result = await scanPartitions([[partition, handle]])
+    expect(result.titles).toHaveLength(1)
     expect(result.titles[0].hasCorruptContent).toBe(true)
+    expect(result.titles[0].hasInternalError).toBe(false)
   })
 
   it('sorts titles alphabetically by display name', async () => {
     const handle = makeDir([
+      ['555308C5', makeTitleDir('00007000', loadFixture('god-south-park-tsot'))],
       ['4B4D07F2', makeTitleDir('00007000', loadFixture('god-dead-island-riptide'))],
-      ['4D530808', makeTitleDir('00000002', loadFixture('dlc-halo-wars'))],
     ])
     const result = await scanPartitions([[partition, handle]])
     expect(result.titles).toHaveLength(2)
     expect(result.titles[0].displayName).toBe('Dead Island Riptide')
-    expect(result.titles[1].displayName).toBe('Unique unit: Honor Guard Wraith')
+    expect(result.titles[1].displayName).toContain('South Park')
   })
 })

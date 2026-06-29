@@ -5,7 +5,7 @@ import { buildTitle } from './build-title.js'
 
 const TITLE_DIR_RE = /^[0-9A-Fa-f]{8}$/
 const CONTENT_TYPE_DIR_RE = /^[0-9A-Fa-f]{8}$/
-const READ_SIZE = 0x2000
+export const READ_SIZE = 0x2000
 
 async function readHeaderBytes(fileHandle: FileSystemFileHandle): Promise<Uint8Array | null> {
   try {
@@ -17,46 +17,85 @@ async function readHeaderBytes(fileHandle: FileSystemFileHandle): Promise<Uint8A
   }
 }
 
-async function scanTitleDirectory(
-  titleHandle: FileSystemDirectoryHandle,
-  titleIdHex: string,
-): Promise<{ headers: XContentHeader[]; hasCorruptContent: boolean }> {
-  const headers: XContentHeader[] = []
-  let hasCorruptContent = false
+type CtScanResult =
+  | { outcome: 'header'; header: XContentHeader }
+  | { outcome: 'corrupt' }
+  | { outcome: 'ioError' }
+  | { outcome: 'empty' }
 
-  try {
-    for await (const [ctName, ctEntry] of titleHandle.entries()) {
-      if (ctEntry.kind !== 'directory' || !CONTENT_TYPE_DIR_RE.test(ctName)) continue
-      try {
-        for await (const [, fileEntry] of (ctEntry as FileSystemDirectoryHandle).entries()) {
-          if (fileEntry.kind !== 'file') continue
-          const bytes = await readHeaderBytes(fileEntry as FileSystemFileHandle)
-          if (bytes === null) {
-            hasCorruptContent = true
-          } else {
-            const result = parseHeader(bytes)
-            if (result.success) {
-              headers.push(result.header)
-            } else {
-              hasCorruptContent = true
-            }
-          }
-          break // only the first file in each content type directory
-        }
-      } catch {
-        hasCorruptContent = true
-      }
+// May throw if iterating the directory itself fails (caller should retry).
+async function scanCtDirectory(ctHandle: FileSystemDirectoryHandle): Promise<CtScanResult> {
+  let anyFile = false
+  let anyIoError = false
+
+  for await (const [, fileEntry] of ctHandle.entries()) {
+    if (fileEntry.kind !== 'file') continue
+    anyFile = true
+
+    let bytes = await readHeaderBytes(fileEntry as FileSystemFileHandle)
+    if (bytes === null) {
+      bytes = await readHeaderBytes(fileEntry as FileSystemFileHandle)
+      if (bytes === null) { anyIoError = true; continue }
     }
-  } catch {
-    hasCorruptContent = true
+
+    const parsed = parseHeader(bytes)
+    if (parsed.success) return { outcome: 'header', header: parsed.header }
+    // Non-parsing file: keep trying others before concluding corrupt
   }
 
-  return { headers, hasCorruptContent }
+  if (!anyFile) return { outcome: 'empty' }
+  if (anyIoError) return { outcome: 'ioError' }
+  return { outcome: 'corrupt' }
+}
+
+type TitleScanOutcome = { headers: XContentHeader[]; hasCorruptContent: boolean; hasInternalError: boolean }
+
+// May throw if iterating titleHandle fails (caller should retry).
+async function attemptScanTitleDirectory(titleHandle: FileSystemDirectoryHandle): Promise<TitleScanOutcome> {
+  const headers: XContentHeader[] = []
+  let hasCorruptContent = false
+  let hasInternalError = false
+
+  for await (const [ctName, ctEntry] of titleHandle.entries()) {
+    if (ctEntry.kind !== 'directory' || !CONTENT_TYPE_DIR_RE.test(ctName)) continue
+    const ctHandle = ctEntry as FileSystemDirectoryHandle
+
+    let result: CtScanResult
+    try {
+      result = await scanCtDirectory(ctHandle)
+    } catch {
+      try {
+        result = await scanCtDirectory(ctHandle)
+      } catch {
+        hasInternalError = true
+        continue
+      }
+    }
+
+    if (result.outcome === 'header') headers.push(result.header)
+    else if (result.outcome === 'corrupt') hasCorruptContent = true
+    else if (result.outcome === 'ioError') hasInternalError = true
+  }
+
+  return { headers, hasCorruptContent, hasInternalError }
+}
+
+async function scanTitleDirectory(titleHandle: FileSystemDirectoryHandle): Promise<TitleScanOutcome> {
+  try {
+    return await attemptScanTitleDirectory(titleHandle)
+  } catch {
+    try {
+      return await attemptScanTitleDirectory(titleHandle)
+    } catch {
+      return { headers: [], hasCorruptContent: false, hasInternalError: true }
+    }
+  }
 }
 
 /** Scans a set of partition/handle tuples and returns all titles found within them, sorted alphabetically by display name. */
 export async function scanPartitions(
   partitions: [Partition, FileSystemDirectoryHandle][],
+  titleLookup?: Record<string, string>,
 ): Promise<PartitionScanResult> {
   const titles = []
 
@@ -65,11 +104,10 @@ export async function scanPartitions(
     try {
       for await (const [dirName, entry] of handle.entries()) {
         if (entry.kind !== 'directory' || !TITLE_DIR_RE.test(dirName)) continue
-        const { headers, hasCorruptContent } = await scanTitleDirectory(
+        const { headers, hasCorruptContent, hasInternalError } = await scanTitleDirectory(
           entry as FileSystemDirectoryHandle,
-          dirName,
         )
-        titles.push(buildTitle(dirName, headers, hasCorruptContent))
+        titles.push(buildTitle(dirName, headers, hasCorruptContent, hasInternalError, titleLookup))
       }
     } catch {
       console.warn(`[xcontent-web] failed to read partition ${partition.directoryName}`)

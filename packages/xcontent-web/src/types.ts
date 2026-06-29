@@ -12,6 +12,7 @@ export type TitleXContent = {
   hasSaves: boolean
   hasOtherContent: boolean
   hasCorruptContent: boolean
+  hasInternalError: boolean
 }
 
 export type PartitionScanResult = {

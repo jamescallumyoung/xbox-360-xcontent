@@ -16,11 +16,17 @@ export function buildTitle(
   titleIdHex: string,
   headers: XContentHeader[],
   hasCorruptContent: boolean,
+  hasInternalError: boolean,
+  titleLookup?: Record<string, string>,
 ): TitleXContent {
   const upperHex = titleIdHex.toUpperCase()
 
+  const gameHeaders = headers.filter(h => GAME_FORMAT_TYPES.has(h.contentType))
+  const isUsable = (n: string) => n.length > 0 && n !== upperHex
   const displayName =
-    headers.flatMap(h => h.displayNames).find(n => n.length > 0 && n !== upperHex) ?? upperHex
+    gameHeaders.flatMap(h => h.displayNames).find(isUsable)
+    ?? titleLookup?.[upperHex]
+    ?? upperHex
 
   const signingTypes = new Set(headers.map(h => h.magic))
   const contentTypes = new Set(headers.map(h => h.contentTypeName))
@@ -49,5 +55,6 @@ export function buildTitle(
     hasSaves,
     hasOtherContent,
     hasCorruptContent,
+    hasInternalError,
   }
 }

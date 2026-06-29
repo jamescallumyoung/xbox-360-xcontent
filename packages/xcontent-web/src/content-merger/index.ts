@@ -1,0 +1,6 @@
+export type { MergeSource, MergeEvent } from './merge.js'
+export { mergeSources } from './merge.js'
+export type { FixupEntry, VerifyEvent, VerifyMode } from './verify.js'
+export { verifySources } from './verify.js'
+export type { RepairEvent } from './repair.js'
+export { repairFiles } from './repair.js'

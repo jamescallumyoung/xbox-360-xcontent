@@ -6,6 +6,7 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "strict": true,
+    "resolveJsonModule": true,
     "noEmit": true,
     "lib": ["ES2022", "DOM"]
   },

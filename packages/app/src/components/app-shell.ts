@@ -8,11 +8,14 @@ import '@shoelace-style/shoelace/dist/components/tab-group/tab-group.js'
 import '@shoelace-style/shoelace/dist/components/tab/tab.js'
 import '@shoelace-style/shoelace/dist/components/tab-panel/tab-panel.js'
 import { discoverPartitions, scanPartitions, type Partition, type PartitionScanResult, type TitleXContent } from 'xcontent-web'
+import retailTitleIds from '../../../../data/retail-title-ids.json'
 import { showToast } from '../utils/toast.js'
 import './partition-picker.js'
 import './title-list.js'
 import './header-inspector.js'
 import './copy-modal.js'
+import './merge-tab.js'
+import './cleanup-tab.js'
 import type { CopyModal } from './copy-modal.js'
 
 @customElement('app-shell')
@@ -154,7 +157,7 @@ export class AppShell extends LitElement {
     this.scanning = true
     this.selectedTitles = []
     try {
-      this.library = await scanPartitions(selectedTuples)
+      this.library = await scanPartitions(selectedTuples, retailTitleIds.titles)
       console.log('[app] PartitionScanResult:', this.library)
     } finally {
       this.scanning = false
@@ -229,9 +232,13 @@ export class AppShell extends LitElement {
       <h1>Xbox 360 Content Utils</h1>
       <sl-tab-group>
         <sl-tab slot="nav" panel="library">Library</sl-tab>
+        <sl-tab slot="nav" panel="merge">Merge</sl-tab>
+        <sl-tab slot="nav" panel="cleanup">Cleanup</sl-tab>
         <sl-tab slot="nav" panel="inspect">Inspect File</sl-tab>
 
         <sl-tab-panel name="library">${this.renderLibraryTab()}</sl-tab-panel>
+        <sl-tab-panel name="merge"><merge-tab></merge-tab></sl-tab-panel>
+        <sl-tab-panel name="cleanup"><cleanup-tab></cleanup-tab></sl-tab-panel>
         <sl-tab-panel name="inspect"><header-inspector></header-inspector></sl-tab-panel>
       </sl-tab-group>
 
