@@ -15,6 +15,7 @@
     "xcontent": "workspace:*"
   },
   "devDependencies": {
+    "memfs": "^4.57.8",
     "typescript": "^6.0.3",
     "vitest": "^2.0.0"
   }
