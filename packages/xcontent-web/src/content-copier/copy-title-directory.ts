@@ -3,6 +3,7 @@ import { CONTENT_TYPE_HEX } from 'xcontent'
 import { copyContentDirectory, type CopyContentDirEvent } from './copy-content-directory.js'
 
 export type CopyTitleDirEvent =
+  | { type: 'title-dir-directory-start'; directoryName: string }
   | { type: 'title-dir-directory-done'; directoryName: string }
   | { type: 'title-dir-did-write' }
   | { type: 'title-dir-no-op' }
@@ -54,6 +55,7 @@ export async function copyTitleDirectory(
   const sourceCtDirs: { name: string; handle: FileSystemDirectoryHandle }[] = []
   for await (const [name, handle] of sourceDir.entries()) {
     if (handle.kind === 'file') {
+      console.log('[xcontent-web] spec violation: unexpected file in title directory:', name)
       onEvent({ type: 'title-dir-err-spec-violation-contains-files' })
       throw new Error('Title directory contains files (spec violation)')
     }
@@ -90,6 +92,7 @@ export async function copyTitleDirectory(
     }
 
     const targetCtDir = await targetDir.getDirectoryHandle(ct.name, { create: true })
+    onEvent({ type: 'title-dir-directory-start', directoryName: ct.name })
     await copyContentDirectory(ct.handle, targetCtDir, chunkSize, onEvent, signal)
 
     await targetDir.removeEntry(markerName)

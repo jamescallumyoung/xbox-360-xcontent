@@ -3,7 +3,7 @@ export type CopyContentDirEvent =
   | { type: 'content-dir-file-done'; fileName: string }
   | { type: 'content-dir-did-write' }
   | { type: 'content-dir-no-op' }
-  | { type: 'content-dir-err-spec-violation-contains-directories' }
+  | { type: 'content-dir-err-spec-violation-contains-directories'; directoryName: string }
   | { type: 'content-dir-err-file-size-mismatch'; fileName: string; expectedBytes: number; actualBytes: number }
 
 type SourceFile = { name: string; size: number; handle: FileSystemFileHandle }
@@ -39,7 +39,8 @@ export async function copyContentDirectory(
   const sourceFiles: SourceFile[] = []
   for await (const [name, handle] of sourceDir.entries()) {
     if (handle.kind === 'directory') {
-      onEvent({ type: 'content-dir-err-spec-violation-contains-directories' })
+      console.log('[xcontent-web] spec violation: unexpected subdirectory in content type directory:', name)
+      onEvent({ type: 'content-dir-err-spec-violation-contains-directories', directoryName: name })
       throw new Error('Content type directory contains subdirectories (spec violation)')
     }
     const file = await handle.getFile()

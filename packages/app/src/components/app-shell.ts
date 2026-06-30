@@ -13,10 +13,12 @@ import { showToast } from '../utils/toast.js'
 import './partition-picker.js'
 import './title-list.js'
 import './header-inspector.js'
-import './copy-modal.js'
+import './configure-copy-modal.js'
+import './copy-titles-modal.js'
 import './merge-tab.js'
 import './cleanup-tab.js'
-import type { CopyModal } from './copy-modal.js'
+import type { ConfigureCopyModal } from './configure-copy-modal.js'
+import type { CopyTitlesModal } from './copy-titles-modal.js'
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -94,7 +96,8 @@ export class AppShell extends LitElement {
   @state() private picking = false
   @state() private unsupported = !('showDirectoryPicker' in window)
 
-  @query('copy-modal') private copyModal!: CopyModal
+  @query('configure-copy-modal') private configureCopyModal!: ConfigureCopyModal
+  @query('copy-titles-modal') private copyTitlesModal!: CopyTitlesModal
 
   private get partitions(): Partition[] {
     return this.partitionTuples.map(([p]) => p)
@@ -164,7 +167,12 @@ export class AppShell extends LitElement {
 
   private openCopyModal() {
     if (!this.targetHandle || this.selectedTitles.length === 0) return
-    this.copyModal.open(this.selectedTitles, this.partitionTuples, this.targetHandle)
+    this.configureCopyModal.open(this.selectedTitles, this.partitionTuples, this.targetHandle)
+  }
+
+  private onCopyTitlesStarted(e: CustomEvent) {
+    const { titles, partitionTuples, targetHandle, allowedContentTypeNames } = e.detail
+    this.copyTitlesModal.open(titles, partitionTuples, targetHandle, allowedContentTypeNames)
   }
 
   private renderLibraryTab() {
@@ -243,7 +251,8 @@ export class AppShell extends LitElement {
         <sl-tab-panel name="inspect"><header-inspector></header-inspector></sl-tab-panel>
       </sl-tab-group>
 
-      <copy-modal></copy-modal>
+      <configure-copy-modal @copy-titles-started=${this.onCopyTitlesStarted}></configure-copy-modal>
+      <copy-titles-modal></copy-titles-modal>
     `
   }
 }

@@ -64,7 +64,7 @@ describe('copyContentDirectory', () => {
       await expect(
         copyContentDirectory(src, dst, MB, collectEvents(events), new AbortController().signal),
       ).rejects.toThrow()
-      expect(events).toContainEqual({ type: 'content-dir-err-spec-violation-contains-directories' })
+      expect(events).toContainEqual({ type: 'content-dir-err-spec-violation-contains-directories', directoryName: 'subdir' })
     })
 
     it('throws on the first subdirectory encountered even if files are also present', async () => {
