@@ -1,10 +1,10 @@
 export type CopyContentDirEvent =
-  | { type: 'file-progress'; fileName: string; bytesWritten: number; bytesTotal: number }
-  | { type: 'file-done'; fileName: string }
-  | { type: 'complete-did-write' }
-  | { type: 'complete-no-op' }
-  | { type: 'err-spec-violation-contains-directories' }
-  | { type: 'err-file-size-mismatch'; fileName: string; expectedBytes: number; actualBytes: number }
+  | { type: 'content-dir-file-progress'; fileName: string; bytesWritten: number; bytesTotal: number }
+  | { type: 'content-dir-file-done'; fileName: string }
+  | { type: 'content-dir-did-write' }
+  | { type: 'content-dir-no-op' }
+  | { type: 'content-dir-err-spec-violation-contains-directories' }
+  | { type: 'content-dir-err-file-size-mismatch'; fileName: string; expectedBytes: number; actualBytes: number }
 
 type SourceFile = { name: string; size: number; handle: FileSystemFileHandle }
 type TargetSnapshot = { files: Map<string, number>; partMarkers: Set<string> }
@@ -39,7 +39,7 @@ export async function copyContentDirectory(
   const sourceFiles: SourceFile[] = []
   for await (const [name, handle] of sourceDir.entries()) {
     if (handle.kind === 'directory') {
-      onEvent({ type: 'err-spec-violation-contains-directories' })
+      onEvent({ type: 'content-dir-err-spec-violation-contains-directories' })
       throw new Error('Content type directory contains subdirectories (spec violation)')
     }
     const file = await handle.getFile()
@@ -57,7 +57,7 @@ export async function copyContentDirectory(
   })
 
   if (toCopy.length === 0) {
-    onEvent({ type: 'complete-no-op' })
+    onEvent({ type: 'content-dir-no-op' })
     return
   }
 
@@ -81,7 +81,7 @@ export async function copyContentDirectory(
         const chunk = sourceFile.slice(bytesWritten, bytesWritten + chunkSize)
         await writable.write(chunk)
         bytesWritten += chunk.size
-        onEvent({ type: 'file-progress', fileName: src.name, bytesWritten, bytesTotal: src.size })
+        onEvent({ type: 'content-dir-file-progress', fileName: src.name, bytesWritten, bytesTotal: src.size })
       }
       await writable.close()
     } catch (err) {
@@ -91,13 +91,13 @@ export async function copyContentDirectory(
 
     const actualSize = (await (await targetDir.getFileHandle(src.name)).getFile()).size
     if (actualSize !== src.size) {
-      onEvent({ type: 'err-file-size-mismatch', fileName: src.name, expectedBytes: src.size, actualBytes: actualSize })
+      onEvent({ type: 'content-dir-err-file-size-mismatch', fileName: src.name, expectedBytes: src.size, actualBytes: actualSize })
       throw new Error(`Size mismatch for "${src.name}": expected ${src.size} bytes, got ${actualSize}`)
     }
 
     await targetDir.removeEntry(markerName)
-    onEvent({ type: 'file-done', fileName: src.name })
+    onEvent({ type: 'content-dir-file-done', fileName: src.name })
   }
 
-  onEvent({ type: 'complete-did-write' })
+  onEvent({ type: 'content-dir-did-write' })
 }

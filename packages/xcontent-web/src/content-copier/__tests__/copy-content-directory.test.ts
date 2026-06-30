@@ -56,7 +56,7 @@ function randomBytes(size: number): Uint8Array {
 
 describe('copyContentDirectory', () => {
   describe('spec violation', () => {
-    it('emits err-spec-violation-contains-directories and throws when source contains a subdirectory', async () => {
+    it('emits content-dir-err-spec-violation-contains-directories and throws when source contains a subdirectory', async () => {
       const { src, dst } = await freshDirs()
       await makeDir(src, 'subdir')
 
@@ -64,7 +64,7 @@ describe('copyContentDirectory', () => {
       await expect(
         copyContentDirectory(src, dst, MB, collectEvents(events), new AbortController().signal),
       ).rejects.toThrow()
-      expect(events).toContainEqual({ type: 'err-spec-violation-contains-directories' })
+      expect(events).toContainEqual({ type: 'content-dir-err-spec-violation-contains-directories' })
     })
 
     it('throws on the first subdirectory encountered even if files are also present', async () => {
@@ -76,12 +76,12 @@ describe('copyContentDirectory', () => {
       await expect(
         copyContentDirectory(src, dst, MB, collectEvents(events), new AbortController().signal),
       ).rejects.toThrow()
-      expect(events.some(e => e.type === 'err-spec-violation-contains-directories')).toBe(true)
+      expect(events.some(e => e.type === 'content-dir-err-spec-violation-contains-directories')).toBe(true)
     })
   })
 
   describe('no-op', () => {
-    it('emits complete-no-op when all source files are present in target with correct sizes', async () => {
+    it('emits content-dir-no-op when all source files are present in target with correct sizes', async () => {
       const { src, dst } = await freshDirs()
       const data = randomBytes(512)
       await writeFile(src, 'aaa', data)
@@ -89,7 +89,7 @@ describe('copyContentDirectory', () => {
 
       const events: CopyContentDirEvent[] = []
       await copyContentDirectory(src, dst, MB, collectEvents(events), new AbortController().signal)
-      expect(events).toEqual([{ type: 'complete-no-op' }])
+      expect(events).toEqual([{ type: 'content-dir-no-op' }])
     })
 
     it('copies a file that exists in target but has a .part marker', async () => {
@@ -101,8 +101,8 @@ describe('copyContentDirectory', () => {
 
       const events: CopyContentDirEvent[] = []
       await copyContentDirectory(src, dst, MB, collectEvents(events), new AbortController().signal)
-      expect(events.some(e => e.type === 'file-done')).toBe(true)
-      expect(events.at(-1)?.type).toBe('complete-did-write')
+      expect(events.some(e => e.type === 'content-dir-file-done')).toBe(true)
+      expect(events.at(-1)?.type).toBe('content-dir-did-write')
     })
 
     it('copies a file that exists in target but has the wrong size', async () => {
@@ -112,7 +112,7 @@ describe('copyContentDirectory', () => {
 
       const events: CopyContentDirEvent[] = []
       await copyContentDirectory(src, dst, MB, collectEvents(events), new AbortController().signal)
-      expect(events.at(-1)?.type).toBe('complete-did-write')
+      expect(events.at(-1)?.type).toBe('content-dir-did-write')
       expect((await readFile(dst, 'aaa')).byteLength).toBe(512)
     })
   })
@@ -128,7 +128,7 @@ describe('copyContentDirectory', () => {
       const events: CopyContentDirEvent[] = []
       await copyContentDirectory(src, dst, MB, collectEvents(events), new AbortController().signal)
 
-      expect(events.at(-1)).toEqual({ type: 'complete-did-write' })
+      expect(events.at(-1)).toEqual({ type: 'content-dir-did-write' })
       expect(await readFile(dst, 'aaa')).toEqual(a)
       expect(await readFile(dst, 'bbb')).toEqual(b)
     })
@@ -141,37 +141,37 @@ describe('copyContentDirectory', () => {
 
       const doneFns: string[] = []
       await copyContentDirectory(src, dst, MB, (e) => {
-        if (e.type === 'file-done') doneFns.push(e.fileName)
+        if (e.type === 'content-dir-file-done') doneFns.push(e.fileName)
       }, new AbortController().signal)
 
       expect(doneFns).toEqual(['aaa', 'bbb', 'ccc'])
     })
 
-    it('emits file-progress events during copy', async () => {
+    it('emits content-dir-file-progress events during copy', async () => {
       const { src, dst } = await freshDirs()
       await writeFile(src, 'data', randomBytes(3 * MB))
 
       const progressEvents: CopyContentDirEvent[] = []
       await copyContentDirectory(src, dst, MB, (e) => {
-        if (e.type === 'file-progress') progressEvents.push(e)
+        if (e.type === 'content-dir-file-progress') progressEvents.push(e)
       }, new AbortController().signal)
 
       expect(progressEvents.length).toBeGreaterThan(0)
-      const last = progressEvents.at(-1) as Extract<CopyContentDirEvent, { type: 'file-progress' }>
+      const last = progressEvents.at(-1) as Extract<CopyContentDirEvent, { type: 'content-dir-file-progress' }>
       expect(last.bytesWritten).toBe(last.bytesTotal)
     })
 
-    it('emits correct event sequence: file-progress*, file-done, complete-did-write', async () => {
+    it('emits correct event sequence: content-dir-file-progress*, content-dir-file-done, content-dir-did-write', async () => {
       const { src, dst } = await freshDirs()
       await writeFile(src, 'aaa', randomBytes(512))
 
       const types: string[] = []
       await copyContentDirectory(src, dst, MB, (e) => types.push(e.type), new AbortController().signal)
 
-      const doneIdx = types.indexOf('file-done')
+      const doneIdx = types.indexOf('content-dir-file-done')
       expect(doneIdx).toBeGreaterThan(0)
-      expect(types.slice(0, doneIdx).every(t => t === 'file-progress')).toBe(true)
-      expect(types.at(-1)).toBe('complete-did-write')
+      expect(types.slice(0, doneIdx).every(t => t === 'content-dir-file-progress')).toBe(true)
+      expect(types.at(-1)).toBe('content-dir-did-write')
     })
 
     it('skips already-complete files and copies only the remainder', async () => {
@@ -183,7 +183,7 @@ describe('copyContentDirectory', () => {
 
       const doneFiles: string[] = []
       await copyContentDirectory(src, dst, MB, (e) => {
-        if (e.type === 'file-done') doneFiles.push((e as { fileName: string }).fileName)
+        if (e.type === 'content-dir-file-done') doneFiles.push((e as { fileName: string }).fileName)
       }, new AbortController().signal)
 
       expect(doneFiles).toEqual(['bbb'])
@@ -232,7 +232,7 @@ describe('copyContentDirectory', () => {
       let aborted = false
       await expect(
         copyContentDirectory(src, dst, MB, (e) => {
-          if (!aborted && e.type === 'file-progress') {
+          if (!aborted && e.type === 'content-dir-file-progress') {
             controller.abort()
             aborted = true
           }
@@ -252,7 +252,7 @@ describe('copyContentDirectory', () => {
       let fired = false
       await expect(
         copyContentDirectory(src, dst, MB, (e) => {
-          if (!fired && e.type === 'file-progress') {
+          if (!fired && e.type === 'content-dir-file-progress') {
             controller.abort()
             fired = true
           }
