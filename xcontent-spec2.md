@@ -1,10 +1,10 @@
 # Xbox 360 Content Specification (v2)
 
-This document describes what the Xbox 360 stores, where it stores it, and in what format. It replaces `xbox360-content-format.md` and `xbox360-content-partitions.md`.
+This document describes what the Xbox 360 stores, where it stores it, and in what format. It replaces `xbox360-content-format.md` and `xbox360-content-partitions.md`. What those documents got wrong is listed in [xcontent-spec2-corrections.md](xcontent-spec2-corrections.md).
 
 It is written for the developers and AI agents working on `xcontent`, `xcontent-web` and the apps built on them.
 
-> **Status: draft.** §1–§8 are drafted. §9 lists what is still to be checked against a real drive.
+> **Status: complete.** All sections are written and reviewed. Some questions are still open. They are marked ❓ or 🔶 where they arise, and listed in the research record ([xcontent-spec2-research.md](xcontent-spec2-research.md)).
 
 ### How confidence is marked
 
@@ -43,6 +43,8 @@ Every package carries the same identifying information, with one exception: PEC,
 ### The `Content/` directory
 
 Packages live in a single directory tree called `Content/`. It is organised first by owner, then by Title ID, then by content type. ✅
+
+Each storage device has its own, such as `Hdd1:\Content\`. 🔶
 
 Each owner directory directly inside `Content/` is called a **partition**. There are two kinds:
 
@@ -367,7 +369,7 @@ What happens to it when the download finishes isn't known. 🔶 Tools should ski
 
 A **title update** (TU) is a patch for a game, released after the game. Its content type is Installer (`000B0000`). ✅
 
-- **Format:** STFS, signed `LIVE`. ✅ Some may be `PIRS`. 🔶 All 44 on the real drives checked (§9) were `LIVE`, with metadata version 1 and one unrestricted licence. ✅
+- **Format:** STFS, signed `LIVE`. ✅ Some may be `PIRS`. 🔶 All 44 on the real drives checked (§8.3) were `LIVE`, with metadata version 1 and one unrestricted licence. ✅
 - **Contents:** a patch to the game's executable, `default.xexp` (§3.4). ✅
 - **Title ID:** the game's own (§1). ✅
 
@@ -542,7 +544,7 @@ Most games keep the default, so a save usually can't simply be given to another 
 
 **Names on FATX.** File and directory names can be at most 42 characters, using letters, digits, spaces and ``! # $ % & ' ( ) - . @ [ ] ^ _ ` { } ~``. ✅ Names keep the case they were written with. ✅ The console most likely ignores case when looking names up, but no source confirms it. 🔶 PC tools for FATX, such as Velocity, match names exactly, including case. ✅ FAT32 USB drives on modded consoles ignore case, as FAT32 always does. 🔶
 
-The limit explains how real packages are named. These patterns were checked against real drives (§9): ✅
+The limit explains how real packages are named. These patterns were checked against real drives (§8.3): ✅
 
 - **Xbox Live STFS packages** (DLC, Arcade games, gamer pictures, trailers and similar) are named with 42 uppercase hex digits: the 20-byte **content ID** (`0x32C`, §6.3) as 40 digits, then the first byte of the Title ID. An example is `E42409217241BEFFDAE1EFBA10F7DA460283CFB358` under Title ID `5841098F`.
 - **Xbox Live Games on Demand** headers are named with 34 hex digits: the **first 32 digits** of the content ID (its first 16 bytes), then the first byte of the Title ID. With `.data` added, the directory name is 39 characters, which fits. Guides that say GOD names are 40 characters are wrong: a 45-character `.data` directory couldn't exist on FATX.
@@ -590,7 +592,7 @@ Offsets and sizes are in bytes, and offsets are from the start of the file. Numb
   - To get the **thumbnails**, read up to `0x971A`.
   - The **three extra languages** of metadata version 2 are stored in the thumbnails' space (§6.5), so they need a read up to `0x971A` too.
 
-**Metadata versions.** The metadata layout has two versions, 1 and 2, identified by the value at `0x348`. ✅ **Version 1 is stored as 0**, and version 2 as 2. ✅ No package on the real drives checked (§9) stores 1. Only 0 and 2 have been found. xenia and Velocity only test whether the value is 2, so a reader should treat any other value as version 1. ✅ Every offset is the same in both versions. Version 2 only puts some unused space to work:
+**Metadata versions.** The metadata layout has two versions, 1 and 2, identified by the value at `0x348`. ✅ **Version 1 is stored as 0**, and version 2 as 2. ✅ No package on the real drives checked (§8.3) stores 1. Only 0 and 2 have been found. xenia and Velocity only test whether the value is 2, so a reader should treat any other value as version 1. ✅ Every offset is the same in both versions. Version 2 only puts some unused space to work:
 
 | | Version 1 | Version 2 |
 |---|---|---|
@@ -830,25 +832,6 @@ To read a package's basic identity:
    - Don't use the presence of a `.data/` directory either, since a broken package may have lost it.
 6. **For SVOD**, the data file count at `0x39D` says how many `Data####` files to expect.
 
-### 6.10 Corrections to the old spec
-
-These claims in `xbox360-content-format.md` were wrong, and are corrected in this specification:
-
-| Old claim | Correction |
-|---|---|
-| SVOD data files are "up to ~4 GB each" | Each is exactly `0xA290000` bytes (~162.6 MiB), except the last (§6.7) |
-| SVOD is "used exclusively" for GameOnDemand | XboxTitle and InstalledGame use it too (§6.9) |
-| A `.data/` directory reliably means SVOD | Use the volume type at `0x3A9` (§6.9) |
-| Display names are 18 slots of `0x80` bytes | 9 slots of `0x100` bytes (§6.5) |
-| `0x004` is "Certificate owner console ID size" | It's the public key certificate size (§6.2) |
-| `0x32C` is a hash "over entire header" | It's the content ID, a hash of the header from `0x344` on (§6.3) |
-| The first data block is at `0xC000` | It depends on the header size and the hash table copies (§6.1, §6.6) |
-| A level-0 hash table comes "after every 170 data blocks" | It comes before the blocks it covers (§6.6) |
-| Content-type directory names are lowercase hex | They are uppercase (§7.1) |
-| `0x00008000` is AvatarAssetPack | It's a system update storage pack (§4.2) |
-| Aurora and FSD disc rips are `CON`-signed | Disc to GOD writes a `LIVE` package with no genuine signature (§2.3) |
-| SVOD stands for "Secure Virtual Offline Disk" | Microsoft's wording is "secure virtual optical disc" (§3.2) |
-
 ## 7. Rules for tools in this repo
 
 These rules say how a tool should read, copy, compare and remove packages. They are written for `xcontent`, `xcontent-web` and the apps built on them, but apply to any tool that works with a `Content/` directory. Each rule points to the sections that explain why.
@@ -865,7 +848,7 @@ directory name = 16 hex chars?   /^[0-9a-fA-F]{16}$/
 
 - **Directly inside `Content/`**, only partition directories are content. Files are always ignored, whatever their name (§2.1).
 - **Inside a partition**, Title ID directories are named with 8 hex digits, such as `4D5307E6` (§1).
-- **Inside a Title ID directory**, content-type directories are named with 8 hex digits, such as `00007000` or `000D0000` (§1). The old docs wrongly said lowercase. ✅
+- **Inside a Title ID directory**, content-type directories are named with 8 hex digits, such as `00007000` or `000D0000` (§1). ✅
 - **Inside a content-type directory**, every file is a package file. The only directory that belongs there is an SVOD package's `<header name>.data` (§7.3).
 - **Anything else** isn't part of the content tree. A tool should skip it and may report it, but shouldn't treat it as a package. The exception is unexpected directories in and beside content-type directories, such as `BACKUP/`, `7000_BACKUP/` and empty nested `00080000/00080000`, which are found on real drives. ✅ Treat these as invalid packages (§7.3).
 - **Downloads in progress** (§4.4) sit in content-type directories like real packages. Skip them, along with their `.data` directory (§7.2).
@@ -965,10 +948,41 @@ These are cited by file name below, without repeating their links.
 | **emoose/xbox-reversing** | https://github.com/emoose/xbox-reversing | Format templates (`Xbox360Container.bt`) and `stfschk` |
 | **ConsoleMods** | https://consolemods.org/wiki/ | Modding wiki. It blocked direct reading, so its pages were mostly seen in snippets. |
 | **X1 research** | [x1-research-findings.md](session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
-| **Real drives** | [real-drive-findings.md](session_context/loadout/docs/real-drive-findings.md) | Header reads of all 591 packages on a USB drive of four `Content/` trees, and of a 181-package copy of one of them (§9). Not in the repo. |
+| **Real drives** | [xcontent-spec2-research.md](xcontent-spec2-research.md) | Primary research on real `Content/` trees (§8.3). The research record holds the method, the evidence and the open questions. |
 | **This repo's fixtures** | `packages/xcontent/src/parse-header/__tests__/fixtures/` | Real package headers: two GOD headers (`god-dead-island-riptide`, `god-south-park-tsot`) and two DLC packages (`dlc-halo-reach-anniversary`, `dlc-halo-wars`) |
 
-### 8.3 §1: The big picture
+### 8.3 Primary research
+
+Some claims were checked directly against real drives, on 2026-10-12. ✅ The sources were:
+- a FAT32 USB drive holding four `Content/` trees, 591 packages in all
+- a copy of part of one of those trees
+
+Every package's header was read, and the layout of every directory was checked. The method, every question asked and the questions still open are in the research record ([xcontent-spec2-research.md](xcontent-spec2-research.md)).
+
+What the drives established, by section:
+
+- **§2.1:** the public partition holds GOD, Arcade games, disc installs, DLC, title updates, avatar items, gamer pictures, themes, trailers and app saves. A profile partition can hold saves without its profile package. Profile partition names don't always start with `E0` (`E812CECF9EA2AF5F`).
+- **§2.2, §2.3:**
+  - Disc installs are `CON`, with one console licence.
+  - Aurora's Disc to GOD rips are `LIVE`, with an all-zero signature.
+  - Paid DLC has an XUID licence and a console licence.
+- **§3.2, §6.7:** all 24 complete SVOD packages match the layout exactly: count, names, the `0xA290000` size, and the total at `0x3A1`. A finished `.data` directory holds only `Data####` files.
+- **§4:**
+  - Title update format and names (§4.5).
+  - Downloads in progress (§4.4).
+  - Avatar award items under the awarding title (§4.6).
+  - System data (§4.7).
+  - Unlocked packages and `BACKUP/` directories (§4.8).
+  - App saves in the public partition, and *Halo* Forge maps as saves (§4.9).
+  - XNA indie saves (§4.3).
+- **§5:** how packages are named. Xbox Live packages are named from the content ID, avatar items from the asset ID, and disc-made packages end with the media ID.
+- **§6:**
+  - Metadata version 1 is stored as 0.
+  - `CON` headers can be `0xAD0E`.
+  - The content ID doesn't cover the licences.
+- **§7:** the invalid layouts in §7.3 were all found on real drives, except where marked. Headers often disagree with their directory (§7.2). The old copier's output had every SVOD header but no `.data` directories (the X1 question).
+
+### 8.4 §1: The big picture
 
 - **Package terminology:**
   - Microsoft patent US7337147 (https://patents.google.com/patent/US7337147) says "content package".
@@ -992,9 +1006,9 @@ These are cited by file name below, without repeating their links.
     - `IsOriginalXboxTitle`: `(title_id & 0x7FFF) < 0x7D0`
   - xboxdevwiki Xbe (https://xboxdevwiki.net/Xbe): "usually 2 ASCII letters for the publisher … followed by a u16 integer game number".
   - ConsoleMods' List of Multi-ID Games (https://consolemods.org/wiki/Xbox_360:List_of_Multi-ID_Games) *(snippet)*: releases with different Title IDs.
-- **Content types** (also §4.2): see §8.6.
+- **Content types** (also §4.2): see §8.7.
 
-### 8.4 §2: Who owns content, and who can use it
+### 8.5 §2: Who owns content, and who can use it
 
 - **Partitions:**
   - xenia-canary `xam_content.cc`: in `XamContentCreate`, the owner comes from `user_index`, and DLC is forced to xuid 0.
@@ -1030,7 +1044,7 @@ These are cited by file name below, without repeating their links.
   - XeUnshackle (https://github.com/Byrom90/XeUnshackle) notes that xeBuild applies the same patches.
   - Free60 PEC page: a package with mismatched IDs is "seen as a corrupted file".
 
-### 8.5 §3: Package formats
+### 8.6 §3: Package formats
 
 - **STFS as a file system:** Free60 STFS: STFS "is the file system used by the Xbox 360 for all packages", and it is "secure and transacted (multiple file / directory revisions)".
 - **STFS hash table copies:**
@@ -1049,7 +1063,7 @@ These are cited by file name below, without repeating their links.
 - **SVOD name:**
   - Microsoft patent US20090143145A1, "Read Redirection of Physical Media" (https://patents.google.com/patent/US20090143145A1/en), says "a secure virtual optical disc layer 404 is used". The patent doesn't write "SVOD", but the phrase matches the initials and the feature.
   - xenia, Velocity, rom-properties and Free60 use the acronym without expanding it.
-  - The Xeren wiki (https://www.xeren.com/wiki/xcontent.html) says "SVOD(Secure Virtual Offline Disk)", the old spec's wording, without citing a source.
+  - The Xeren wiki (https://www.xeren.com/wiki/xcontent.html) says "SVOD(Secure Virtual Offline Disk)", without citing a source. `xbox360-content-format.md` used the same wording.
 - **Disc installs:**
   - Velocity `XboxInternals/Disc/Svod.cpp`: SVOD is accepted only for GameOnDemand and InstalledGame.
   - The Le Fluffie guide (https://stainedfuture.wordpress.com/2010/01/01/le_fluffie/) converts a disc install by copying `00004000` to `00007000` and changing only the header.
@@ -1069,7 +1083,7 @@ These are cited by file name below, without repeating their links.
   - **XUI archives:** xenia-canary `xam_info.cc` (`file://media:/{}.xzp` and `section://` resource paths).
   - **Others:** the Free60 Formats section lists FMIM, GPD, SPA, XCP, XDBF and XEX.
 
-### 8.6 §4: Content types
+### 8.7 §4: Content types
 
 - **Names and IDs:**
   - xenia `src/xenia/xbox.h`
@@ -1133,7 +1147,7 @@ These are cited by file name below, without repeating their links.
   - The game cache API: xenia-canary `xam_table.inc` (`XamCacheStoreFile` and related).
 - **Ripped music** (§4.10): FATXplorer (https://fatxplorer.eaton-works.com/how-to-organize-and-extract-xbox-360-music-files/): "Content Partition:\\mindex" holds "a mindex.xmi file and a media folder".
 
-### 8.7 §5: File systems
+### 8.8 §5: File systems
 
 - **FATX names:**
   - Free60 FATX (https://free60.org/System-Software/Systems/FATX/): "Maximum Filename Length: 0x2A (42)".
@@ -1148,10 +1162,10 @@ These are cited by file name below, without repeating their links.
 - **Hard drive areas:**
   - Free60 FATX: retail offsets are "built in to the kernel".
   - Velocity `XboxInternals/Fatx/FatxConstants.h` and `FatxDrive.cpp` ("System Extended", "System Auxiliary", "Content").
-  - Eaton Works (§8.3) on the 2008 system areas and the 2012 dashboard move.
+  - Eaton Works (§8.4) on the 2008 system areas and the 2012 dashboard move.
 - **USB `Data####` files:** Digiex (https://digiex.net/threads/please-help-how-can-i-make-my-usb-xtaf-files-data0000-files-usable.12890/), and Free60's USB page.
 
-### 8.8 §6: Package format in detail
+### 8.9 §6: Package format in detail
 
 - **Header and metadata layout:**
   - xenia-canary `kernel/xam/xcontent/xcontent.h` (`XContentHeader`, `XContentMetadata`, `XContentLicense`, `XContentAttributes`).
@@ -1164,36 +1178,6 @@ These are cited by file name below, without repeating their links.
 - **String encoding:** rom-properties (UTF-16BE, and the UTF-8-as-UTF-16BE problem), and the *South Park* fixture (§8.2).
 - **Header sizes:** emoose `Xbox360Container.bt` (LIVE and PIRS headers are `0xAD0E` "because they include XCONTENT_METADATA_INSTALLER"), and the GOD fixtures (§8.2).
 
-### 8.9 §7: Rules for tools
+### 8.10 §7: Rules for tools
 
 §7's rules are built on the sections they cite. Their sources are listed under those sections above.
-
-## 9. To check against a real drive
-
-These questions can be settled by looking at a real `Content/` directory. They were checked on 2026-10-12 against a FAT32 USB drive holding four `Content/` trees of unknown provenance (591 packages), and a 181-package copy of one of those trees. The full results are in `session_context/loadout/docs/real-drive-findings.md`.
-
-1. **Public partition contents (§2.1).** Are Games on Demand, Arcade games, demos, disc installs, gamer pictures and themes all under `0000000000000000`?
-   - **Mostly yes.** ✅ GOD, disc installs, gamer pictures, themes, avatar items, DLC, title updates, trailers and app saves are all there. Arcade games are there too. ✅ Demo directories held only downloads in progress, so demos are unconfirmed.
-2. **Profile partitions (§2.1).** Does a profile partition exist only where that profile has content? Are there partitions whose profile isn't on the drive, or that were left behind by a deleted profile?
-   - **Yes, a partition can exist without its profile.** ✅ One profile partition held only saves, and its profile package wasn't on the drive. Its name, `E812CECF9EA2AF5F`, is why §2.1 doesn't require an `E0` prefix.
-   - **Left-behind partitions:** won't be checked. Tools should assume they occur (§2.1). 🔶
-3. **Saves in the public partition (§2.1).** Are there any saves (`00000001`) under `0000000000000000`?
-   - **Yes.** ✅ Seven `CON` saves, all app data: PlayReady licence stores, Zune, Xbox Music and Video, Sky Player and Demand 5. No game saves.
-4. **Package names and content IDs (§5).** For a few Xbox Live DLC and GOD packages, does the file name start with the 20-byte content ID at header offset `0x32C`, written in hex?
-   - **Yes.** ✅ All 59 42-character names are the content ID plus the Title ID's first byte. Exceptions: `PIRS` themes (the 40 digits aren't the content ID, and some names are short words such as `fc3theme`), *Dragon Age: Origins* DLC (41 characters: only the first digit of the Title ID byte), and avatar items (the 16-byte asset ID at `0x3E1`).
-5. **GOD header names (§5).** How long are the header names of Aurora's Disc to GOD rips? Do real Xbox Live GOD headers have 34-character names?
-   - **Yes.** ✅ A real Xbox Live GOD has 34 characters: the first 32 digits of the content ID plus the Title ID byte. Aurora's Disc to GOD rips and disc installs have 32 characters, ending with the media ID.
-6. **Disc install signatures (§2.2).** Is a disc install (`00004000`) header labelled `CON`?
-   - **Yes.** ✅ `CON`, signed, with one console licence.
-7. **Aurora's Disc to GOD signature (§2.3).** Is the header of an Aurora Disc to GOD rip labelled `LIVE`, with a blank signature?
-   - **Yes.** ✅ All 8 Disc to GOD rips (made with Aurora's Disc to GOD, the drive owner confirmed) are `LIVE` with an all-zero signature.
-8. **Licences on a modded console (§2.2).** Does purchased content copied to another modded console play without being unlocked?
-   - **Left open.** It needs a second console, and none is available. The files do confirm that paid DLC has two licences: an XUID and the console.
-9. **Avatar award items (§4.6).** Is an awarded item stored at `Content/0000000000000000/<awarding TitleID>/00009000/`, and what is its header labelled (`PIRS`, `LIVE` or `CON`)?
-   - **Yes.** ✅ Under the awarding title (for example *Halo Waypoint*'s `4D5308CE`). Award items are `PIRS`, and bought ones `LIVE`. 🔶 (Award or bought is judged by name.) **Left open:** confirming it would mean reading inside packages, which won't be done.
-10. **Player-made content (§4.9).** What content type do *Halo 3* Forge maps, saved films and screenshots, and *Minecraft* worlds use?
-   - **For *Halo*: SavedGame (`00000001`)** ✅ in the profile partition. *Halo 3* Forge maps are `usermap…` saves, and *Reach* and *Halo 4* map variants are saves too. Saved films, screenshots and *Minecraft* worlds weren't on either drive. They are probably saves too. 🔶 Left as that: other games' content won't be checked one by one.
-11. **FATX case (§5).** Does the console find content in lowercase directories, such as `4d5307e6/000d0000/`, and a data directory spelled `<name>.DATA`?
-   - **Partly.** Every directory was uppercase, but the console writes some file names in lowercase (title updates, XNA packages, gamer picture caches). Whether it finds lowercase directories, or `.DATA`, would need a test on a real FATX drive. **Left open:** that test won't be done. The spec treats the console as probably case-insensitive (§5, §7.1). 🔶
-12. **The X1 question.** What format are the user's ripped games in (§4.3), and were past copies complete?
-   - **Answered.** ✅ The games are SVOD, not extracted rips. The old app's output (`NewContent/` on the USB drive, of which the local copy is a subset) has every SVOD header but no `.data/` directories. The 24 complete SVOD packages elsewhere on the drive match §3.2 exactly.
