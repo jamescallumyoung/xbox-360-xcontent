@@ -4,7 +4,7 @@ This document describes what the Xbox 360 stores, where it stores it, and in wha
 
 It is written for the developers and AI agents working on `xcontent`, `xcontent-web` and the apps built on them.
 
-> **Status: draft.** The non-technical parts (§1–§5) are drafted. The technical parts (§6 and §7) are outlines only.
+> **Status: draft.** §1–§8 are drafted. §9 lists what is still to be checked against a real drive.
 
 ### How confidence is marked
 
@@ -216,7 +216,7 @@ Unlike STFS, SVOD has no file system of its own. It is a signed, hashed wrapper 
 
 > **Checked against real files.** This repo's test fixtures include two real GOD headers, from *Dead Island Riptide* and *South Park: The Stick of Truth*. Both are exactly 45,056 bytes, with volume type 1 (SVOD). Their data file counts are 22 and 23, which match their combined data sizes (3.43 and 3.63 GiB) split into ~163 MB files. Two real DLC packages in the fixtures have volume type 0 (STFS) and a data file count of 0. ✅
 
-SVOD is used for Games on Demand, and for original Xbox games, whether bought from Xbox Live or converted with tools such as Iso2God. Disc installs made by the dashboard use it too, in the same layout as GOD. ✅ Because it is a format and not a content type, the only reliable test is the package's header (§6).
+SVOD is used for Games on Demand, and for original Xbox games, whether bought from Xbox Live or converted with tools such as Iso2God. Disc installs made by the dashboard use it too, in the same layout as GOD. ✅ Because it is a format and not a content type, the only reliable test is the package's header (§6.9).
 
 > **About the name.** Microsoft never spells out the acronym SVOD. A Microsoft patent calls this layer a "secure virtual optical disc", which matches the initials. One community wiki, Xeren, says "Secure Virtual Offline Disk" instead, without a source. This spec uses Microsoft's wording. 🔶
 
@@ -497,7 +497,7 @@ Most games keep the default, so a save usually can't simply be given to another 
 >
 > Free60 and Velocity give the two system areas opposite names. This spec follows Velocity's. 🔶
 
-**Names on FATX.** File and directory names can be at most 42 characters, using letters, digits, spaces and ``! # $ % & ' ( ) - . @ [ ] ^ _ ` { } ~``. ✅ Whether names are case-sensitive is unknown. ❓
+**Names on FATX.** File and directory names can be at most 42 characters, using letters, digits, spaces and ``! # $ % & ' ( ) - . @ [ ] ^ _ ` { } ~``. ✅ Names keep the case they were written with. ✅ The console most likely ignores case when looking names up, but no source confirms it. 🔶 PC tools for FATX, such as Velocity, match names exactly, including case. ✅ FAT32 USB drives on modded consoles ignore case, as FAT32 always does. 🔶
 
 The limit explains how real packages are named: ✅
 
@@ -511,47 +511,299 @@ The limit explains how real packages are named: ✅
 
 ---
 
-## 6. Package format in detail *(technical, to do)*
+## 6. Package format in detail
 
-- For each content type: which can be SVOD, and which usually sit in the public partition and which in a profile partition.
+This section is the technical reference for reading packages.
 
-To carry over and correct from the old spec:
-- The header layout: magic, certificate, metadata, display strings (old §3 and §9).
-- STFS blocks and the hash tree.
-- The SVOD header fields:
-  - data file count at `0x39D`
-  - combined data size at `0x3A1`
-  - descriptor type at `0x3A9` (big-endian u32: 0 means STFS, 1 means SVOD)
-- The SVOD data-file rules:
-  - each file is exactly `0xA290000` bytes, except the last
-  - files are named `Data%04d`, with no gaps in the numbering
-  - the directory is found by the header name plus `.data`
-  - header names are set by whoever made the package, and their length varies: 34 hex characters for Xbox Live downloads, 8 for iso2god-rs, 20 for Iso2God (§5)
-- How to tell STFS from SVOD.
-- Where the Title ID is stored:
-  - in the package header at `0x360` (big-endian u32), after the Media ID at `0x354`, the version at `0x358` and the base version at `0x35C`
-  - in the `.xex`'s execution info (optional header `0x40006`), which has the same fields, plus the disc number and disc count
-  - as the name of the SPA resource inside the `.xex`
+**Which formats have this header.** Every STFS and SVOD package starts with the same **XContent header** (§1). ✅
 
-  The Media ID identifies a particular disc or build, and the Title ID identifies the game.
-- The PEC header: no magic, so the file starts with the 0x228-byte console certificate. The fields are:
-  - the header hash at `0x228`, covering `0x23C`–`0x1000`
-  - the STFS volume descriptor at `0x244`
-  - the profile ID at `0x26C`
-  - the console ID at `0x275`, which must match the certificate's
-  - an "enabled" byte that must be 1
+- **In an STFS package**, the header is the start of the single package file, and the package's blocks follow it.
+- **In an SVOD package**, the header is the whole header file. The `Data####` files in the `.data/` directory have no header of their own.
+- **PEC** uses a cut-down version of the header, described separately in §6.8.
 
-  The header is `0x1000` bytes. Hash table 0 starts at `0x1000` and data block 0 at `0x3000` (Free60, Velocity).
-- Fix the old spec's claims that:
-  - Disc to GOD output is `CON`-signed
-  - SVOD is used only for GOD
-  - a `.data/` directory is the way to detect SVOD
+Offsets and sizes are in bytes, and offsets are from the start of the file. Numbers are big-endian unless marked **LE** (little-endian). Field offsets are verified against xenia's `xcontent.h`, `stfs_xbox.h` and `xex2_info.h`, and Velocity's `XContentHeader.cpp`, unless marked otherwise.
 
-## 7. Rules for tools in this repo *(technical, to do)*
+### 6.1 Header overview
 
-### 7.1 Classifying partitions
+*Applies to STFS and SVOD packages.*
 
-From `xbox360-content-partitions.md`, §3:
+| Offset | Size | Region |
+|---|---|---|
+| `0x000` | `0x22C` (556) | Magic and signature (§6.2) |
+| `0x22C` | `0x118` (280) | Licences, content ID and header size (§6.3) |
+| `0x344` | `0x93D6` (37,846) | Metadata, ending at `0x971A` (§6.4, §6.5) |
+
+- **Header size:** the size of the header that's actually used is stored at `0x340`. It is `0x971A` for `CON` packages, and `0xAD0E` for `LIVE` and `PIRS` packages, which add extra installer metadata. 🔶
+- **Padding:** the header is padded to the next 4 KiB boundary: `0xA000` for `CON`, `0xB000` for `LIVE` and `PIRS`. 🔶
+- **How much to read:** a tool doesn't need the whole header to identify a package.
+  - The **first `0x2000` bytes** (8 KiB) hold every field up to the start of the thumbnails at `0x171A`. That covers the magic, signature, licences, metadata and the nine main language strings.
+  - To get the **thumbnails**, read up to `0x971A`.
+  - The **three extra languages** of metadata version 2 are stored in the thumbnails' space (§6.5), so they need a read up to `0x971A` too.
+
+**Metadata versions.** The metadata layout has two versions, stored at `0x348` as 1 or 2. ✅ Every offset is the same in both. Version 2 only puts some unused space to work:
+
+| | Version 1 | Version 2 |
+|---|---|---|
+| `0x3D9` (`0x24` bytes) | Unused | Media data or avatar asset data (§6.4) |
+| Languages | 9 | 12. The three extra are stored in the thumbnails' space (§6.5). |
+| Space for each thumbnail | `0x4000` | `0x3D00` |
+
+### 6.2 Magic and signature (`0x000`–`0x22C`)
+
+*Applies to STFS and SVOD packages.*
+
+A **magic** is a fixed value at the start of a file that identifies its format, such as `%PDF` at the start of a PDF. For a package, the magic also says how it is signed.
+
+The first 4 bytes are the magic: `CON ` (note the trailing space), `LIVE` or `PIRS` (§2.2). ✅ What follows depends on the magic.
+
+**`CON` packages** carry the signing console's certificate: ✅
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x004` | `0x2` (2) | Public key certificate size |
+| `0x006` | `0x5` (5) | Certificate owner console ID |
+| `0x00B` | `0x14` (20) | Console part number (text) |
+| `0x01F` | `0x1` (1) | Console type: `0x01` devkit, `0x02` retail |
+| `0x020` | `0x8` (8) | Certificate date (text) |
+| `0x028` | `0x4` (4) | Public exponent |
+| `0x02C` | `0x80` (128) | Public modulus |
+| `0x0AC` | `0x100` (256) | Certificate signature (by Microsoft) |
+| `0x1AC` | `0x80` (128) | Package signature (RSA-1024, by the console) |
+
+**`LIVE` and `PIRS` packages** carry a `0x100`-byte Microsoft signature at `0x004`, followed by padding up to `0x22C`. ✅ Tool-made `LIVE` packages leave the signature empty (§2.3).
+
+### 6.3 Licences, content ID and header size (`0x22C`–`0x344`)
+
+*Applies to STFS and SVOD packages.*
+
+A package's **licences** say who may use it: anyone, a particular Xbox Live account, or a particular console (§2.2). The console checks them when the package is used.
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x22C` | `0x100` (256) | 16 licence entries of `0x10` bytes each (below) |
+| `0x32C` | `0x14` (20) | Content ID: a SHA-1 hash of the header from `0x344` up to the header size at `0x340` 🔶. Velocity calls it the header hash. |
+| `0x340` | `0x4` (4) | Header size (§6.1) |
+
+Each licence entry is: ✅
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x0` | `0x8` (8) | Licensee ID. The top 16 bits are a type, and the low 48 bits are its data. |
+| `0x8` | `0x4` (4) | Licence bits. Bit 0 is generally the full-version licence for Arcade games. |
+| `0xC` | `0x4` (4) | Licence flags |
+
+Licensee types (Velocity): `0xFFFF` unrestricted (so `0xFFFFFFFFFFFFFFFF` means anyone), `0x0009` an Xbox Live account (XUID), `0x0003` a Windows Live account, `0xF000` a console, and `0xE000`, `0xD000`, `0xC000` and `0xB000` for media, keyvault, hypervisor and user privilege flags. `0x0000` means unused. ✅ Console-signed packages such as saves usually have one unrestricted entry (§2.2). ✅
+
+### 6.4 Metadata (`0x344` onward)
+
+*Applies to STFS and SVOD packages.*
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x344` | `0x4` (4) | Content type (§4.2) |
+| `0x348` | `0x4` (4) | Metadata version: 1 or 2 (§6.1) |
+| `0x34C` | `0x8` (8) | Content size |
+| `0x354` | `0x4` (4) | Media ID |
+| `0x358` | `0x4` (4) | Version |
+| `0x35C` | `0x4` (4) | Base version |
+| `0x360` | `0x4` (4) | Title ID (§1) |
+| `0x364` | `0x1` (1) | Platform |
+| `0x365` | `0x1` (1) | Executable type |
+| `0x366` | `0x1` (1) | Disc number |
+| `0x367` | `0x1` (1) | Disc count |
+| `0x368` | `0x4` (4) | Save game ID |
+| `0x36C` | `0x5` (5) | Console ID of the creating console |
+| `0x371` | `0x8` (8) | Profile ID of the owning profile, or 0 (§2.1) |
+| `0x379` | `0x24` (36) | Volume descriptor: STFS (§6.6) or SVOD (§6.7) |
+| `0x39D` | `0x4` (4) | Data file count: 0 for STFS |
+| `0x3A1` | `0x8` (8) | Combined size of the data files (SVOD) |
+| `0x3A9` | `0x4` (4) | Volume type: 0 STFS, 1 SVOD |
+| `0x3AD` | `0x8` (8) | Online creator |
+| `0x3B5` | `0x4` (4) | Category |
+| `0x3B9` | `0x20` (32) | Reserved |
+| `0x3D9` | `0x24` (36) | Metadata version 2 only (§6.1): either media data (series ID, season ID, season and episode numbers) or avatar asset data (sub-category, colourisable flag, asset ID, skeleton version) |
+| `0x3FD` | `0x14` (20) | Device ID of the storage device |
+| `0x411` | `0x900` (2,304) | Display names (§6.5) |
+| `0xD11` | `0x900` (2,304) | Descriptions (§6.5) |
+| `0x1611` | `0x80` (128) | Publisher name |
+| `0x1691` | `0x80` (128) | Title name |
+| `0x1711` | `0x1` (1) | Transfer flags (below) |
+| `0x1712` | `0x4` (4) | Thumbnail size |
+| `0x1716` | `0x4` (4) | Title thumbnail size |
+| `0x171A` | `0x4000` (16,384) or `0x3D00` (15,616) | Thumbnail (PNG) |
+| `0x571A` | `0x4000` (16,384) or `0x3D00` (15,616) | Title thumbnail (PNG) |
+
+Fields `0x354`–`0x36B` are the same execution info a game's `.xex` carries in its optional header `0x40006`. ✅ The Media ID identifies a particular disc or build, and the Title ID identifies the game.
+
+**Transfer flags** (`0x1711`), as Velocity reads them: ✅
+
+| Bit | Meaning |
+|---|---|
+| `0x80` | Can be moved to another profile |
+| `0x40` | Can be moved to another storage device |
+| `0x20` | Can be moved but not copied |
+| `0x10` | Kinect enabled |
+| `0x08` | Network storage disabled |
+| `0x04` | Deep links supported |
+| `0x02`, `0x01` | Unknown |
+
+xenia declares the same six flags as a C bitfield, which a reader could take to mean the opposite bit order. Velocity's explicit values are the safer reference. 🔶
+
+### 6.5 Display strings and thumbnails
+
+*Applies to STFS and SVOD packages.*
+
+**Encoding.** All text fields are **UTF-16BE**. ✅ Real files store the character "D" as `0x00 0x44`. Free60 wrongly calls these "UTF-8 strings". rom-properties documents UTF-16BE, and notes that some content stores UTF-8 bytes as if they were UTF-16BE, which produces garbled text. One of this repo's fixtures, *South Park: The Stick of Truth*, has this problem.
+
+**Language slots.** The display name and description fields are each **9 slots of `0x100` bytes** (128 UTF-16 characters) ✅ (xenia: `chars[kNumLanguagesV1][128]` with `kNumLanguagesV1 = 9`.)
+
+Slot *n* holds the language with ID *n* + 1: ✅
+
+| Slot | Language |
+|---|---|
+| 0 | English |
+| 1 | Japanese |
+| 2 | German |
+| 3 | French |
+| 4 | Spanish |
+| 5 | Italian |
+| 6 | Korean |
+| 7 | Traditional Chinese |
+| 8 | Portuguese |
+
+Each slot is padded with zeros. Empty slots are all zeros, so a reader should skip them.
+
+**Metadata version 2** (§6.1) adds three more languages. 🔶 Their names and descriptions go in `0x300`-byte blocks taken from the end of each thumbnail's space: names at `0x541A` and descriptions at `0x941A`. ✅ So each thumbnail can be at most `0x3D00` bytes in version 2, instead of `0x4000`. The thumbnails don't move. ✅ xenia's language list suggests the extra three include Polish and Russian. 🔶
+
+### 6.6 STFS: blocks, hash tables and files
+
+**The volume descriptor** (`0x379`, `0x24` bytes): ✅
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x00` | `0x1` (1) | Descriptor length: `0x24` |
+| `0x01` | `0x1` (1) | Version |
+| `0x02` | `0x1` (1) | Flags: bit 0 read-only format (one copy of each hash table), bit 1 root active index (which copy of the top hash table is current), bits 2–3 directory flags |
+| `0x03` | `0x2` (2) **LE** | File table block count |
+| `0x05` | `0x3` (3) **LE** | File table starting block |
+| `0x08` | `0x14` (20) | Hash of the top hash table |
+| `0x1C` | `0x4` (4) | Total block count |
+| `0x20` | `0x4` (4) | Free block count |
+
+**Blocks.** After the padded header (§6.1), the package is a run of 4 KiB (`0x1000`) blocks. Data blocks are numbered from 0, and hash tables sit between them, without numbers of their own. ✅
+
+- **Level 0:** a hash table comes *before* each run of 170 data blocks, and holds one entry per block. ✅
+- **Level 1:** a hash table covers each 170 level-0 tables (28,900 blocks).
+- **Level 2:** a hash table covers each 170 level-1 tables. ✅
+- **Copies:** in writable packages (`CON`) every hash table has two copies in a row, and a bit in the entry above says which is current. Read-only packages (`LIVE`, `PIRS`) have one copy (§3.1). ✅
+
+xenia's `StfsContainerDevice::BlockToOffset` gives the exact formula for turning a block number into a file offset.
+
+**A hash entry** is `0x18` bytes: a 20-byte SHA-1 of the block, then a 4-byte info word. ✅
+
+- **At level 0**, the info word's top 2 bits are the block's state (free or in use), and its low 24 bits are the next block in the file's chain. `0xFFFFFF` ends the chain.
+- **At higher levels**, the info word holds the active-copy bit (`0x40000000`) and a count of free blocks.
+
+A hash table holds 170 entries plus a 4-byte block count, filling one block.
+
+**The file table** is a chain of blocks starting at the block in the volume descriptor. Each block holds 64 entries of `0x40` bytes: ✅
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x00` | `0x28` (40) | Name. **At most 40 characters**, two fewer than FATX allows. |
+| `0x28` | `0x1` (1) | Bits 0–5: name length. Bit 6: blocks are contiguous. Bit 7: is a directory. |
+| `0x29` | `0x3` (3) **LE** | Valid data blocks |
+| `0x2C` | `0x3` (3) **LE** | Allocated data blocks |
+| `0x2F` | `0x3` (3) **LE** | Starting block |
+| `0x32` | `0x2` (2) | Parent directory's index in the file table. `0xFFFF` is the root. |
+| `0x34` | `0x4` (4) | File size in bytes |
+| `0x38` | `0x2` (2) + `0x2` (2) | Created date and time (FAT format) |
+| `0x3C` | `0x2` (2) + `0x2` (2) | Modified date and time (FAT format) |
+
+Note the mixed byte order: the 2- and 3-byte block fields are little-endian, and everything else is big-endian. ✅
+
+### 6.7 SVOD: descriptor and data files
+
+**The volume descriptor** (`0x379`, `0x24` bytes): ✅
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x00` | `0x1` (1) | Descriptor length: `0x24` |
+| `0x01` | `0x1` (1) | Block cache element count |
+| `0x02` | `0x1` (1) | Worker thread processor |
+| `0x03` | `0x1` (1) | Worker thread priority |
+| `0x04` | `0x14` (20) | Hash of the first data file's first hash table |
+| `0x18` | `0x1` (1) | Features: bit `0x40` means the Enhanced GDF layout |
+| `0x19` | `0x3` (3) **LE** | Number of data blocks |
+| `0x1C` | `0x3` (3) **LE** | First data block |
+| `0x1F` | `0x5` (5) | Reserved |
+
+**Data files.** ✅
+
+- **Location:** the data files are in `<header name>.data/`, next to the header. A missing directory means the package is incomplete (§7.3).
+- **Names:** `Data0000`, `Data0001`… The number is 4-digit decimal, and there are no gaps.
+- **Count:** the number of files must equal the data file count at `0x39D`. Readers sort them by name.
+- **Size:** each file is exactly `0xA290000` bytes (170,459,136, about 162.6 MiB), except the last, which can be shorter. Each holds 0x14388 data blocks of `0x800` bytes, plus their hash tables.
+
+**Disc image layouts.** The data files hold a disc image, which starts with the magic `MICROSOFT*XBOX*MEDIA`. Where it is found depends on the layout: ✅
+
+| Layout | Magic found at | Typical of |
+|---|---|---|
+| Enhanced GDF | `0x2000` in `Data0000` | Xbox Live downloads and most tools |
+| XSF | `0x12000` in `Data0000` | Some third-party tools |
+| One data file | `0xD000` | Small packages with a single data file |
+
+### 6.8 PEC header
+
+PEC (§3.3) has no magic, and starts directly with a `0x228`-byte console certificate laid out as in §6.2. ✅
+
+| Offset | Size | Field |
+|---|---|---|
+| `0x228` | `0x14` (20) | Header hash, covering `0x23C`–`0x1000` |
+| `0x244` | `0x24` (36) | STFS volume descriptor |
+| `0x26C` | `0x8` (8) | Profile ID |
+| `0x275` | `0x5` (5) | Console ID. It must match the certificate's console ID. |
+| | `0x1` (1) | "Enabled" byte, which must be 1 |
+
+The header is `0x1000` bytes. Hash table 0 starts at `0x1000`, and data block 0 at `0x3000`, since a PEC always has two copies of each hash table. ✅ (Free60 PEC page; Velocity `MetadataIsPEC`.)
+
+### 6.9 Identifying a package
+
+To read a package's basic identity:
+
+1. **Magic** at `0x000`: `CON `, `LIVE` or `PIRS`. Anything else means it isn't a package, or it's a PEC (§6.8).
+2. **Content type** at `0x344` (§4.2).
+3. **Title ID** at `0x360`.
+4. **Profile ID** at `0x371`, as a cross-check only. The partition directory decides ownership (§7.2).
+5. **Volume type** at `0x3A9`: 0 means STFS, 1 means SVOD.
+   - Don't use the content type to decide this. GameOnDemand (`00007000`), XboxTitle (`00005000`) and InstalledGame (`00004000`) all use SVOD. ✅
+   - Don't use the presence of a `.data/` directory either, since a broken package may have lost it.
+6. **For SVOD**, the data file count at `0x39D` says how many `Data####` files to expect.
+
+### 6.10 Corrections to the old spec
+
+These claims in `xbox360-content-format.md` were wrong, and are corrected in this specification:
+
+| Old claim | Correction |
+|---|---|
+| SVOD data files are "up to ~4 GB each" | Each is exactly `0xA290000` bytes (~162.6 MiB), except the last (§6.7) |
+| SVOD is "used exclusively" for GameOnDemand | XboxTitle and InstalledGame use it too (§6.9) |
+| A `.data/` directory reliably means SVOD | Use the volume type at `0x3A9` (§6.9) |
+| Display names are 18 slots of `0x80` bytes | 9 slots of `0x100` bytes (§6.5) |
+| `0x004` is "Certificate owner console ID size" | It's the public key certificate size (§6.2) |
+| `0x32C` is a hash "over entire header" | It's the content ID, a hash of the header from `0x344` on (§6.3) |
+| The first data block is at `0xC000` | It depends on the header size and the hash table copies (§6.1, §6.6) |
+| A level-0 hash table comes "after every 170 data blocks" | It comes before the blocks it covers (§6.6) |
+| Content-type directory names are lowercase hex | They are uppercase (§7.1) |
+| `0x00008000` is AvatarAssetPack | It's a system update storage pack (§4.2) |
+| Aurora and FSD disc rips are `CON`-signed | Disc to GOD writes a `LIVE` package with no genuine signature (§2.3) |
+| SVOD stands for "Secure Virtual Offline Disk" | Microsoft's wording is "secure virtual optical disc" (§3.2) |
+
+## 7. Rules for tools in this repo
+
+These rules say how a tool should read, copy, compare and remove packages. They are written for `xcontent`, `xcontent-web` and the apps built on them, but apply to any tool that works with a `Content/` directory. Each rule points to the sections that explain why.
+
+### 7.1 Walking a `Content/` directory
 
 ```
 directory name = 16 hex chars?   /^[0-9a-fA-F]{16}$/
@@ -561,80 +813,298 @@ directory name = 16 hex chars?   /^[0-9a-fA-F]{16}$/
        └─ otherwise                  → profile (profileId: directoryName)
 ```
 
-- Files directly inside `Content/` are always ignored, whatever their name.
-- Inside a partition:
-  - Title ID directories are named with 8 uppercase hex digits, such as `4D5307E6`.
-  - Content-type directories are named with 8 zero-padded uppercase hex digits, such as `00007000` or `000D0000`. ✅ The old docs wrongly said lowercase.
+- **Directly inside `Content/`**, only partition directories are content. Files are always ignored, whatever their name (§2.1).
+- **Inside a partition**, Title ID directories are named with 8 hex digits, such as `4D5307E6` (§1).
+- **Inside a Title ID directory**, content-type directories are named with 8 hex digits, such as `00007000` or `000D0000` (§1). The old docs wrongly said lowercase. ✅
+- **Inside a content-type directory**, every file is a package file. The only directory that belongs there is an SVOD package's `<header name>.data` (§7.3).
+- **Anything else** isn't part of the content tree. A tool should skip it and may report it, but shouldn't treat it as a package.
+- **Case:** match names without regard to case, but write them in their usual case:
+  - uppercase hex for Title ID and content-type directories
+  - an SVOD package's data directory spelled exactly `<header name>.data`
 
-### 7.2 Other rules
+  The console probably accepts other cases, but PC tools for FATX don't (§5). 🔶
+- **System and homebrew titles** appear as ordinary Title ID directories, such as `FFFE07D1`, `FFFE07DF` and `C0DE9999` (§4.6). A tool that lists titles should recognise them, rather than show them as games.
 
-What `xcontent` and `xcontent-web` must do: for example, treat an SVOD header and its `.data/` directory as one unit when copying, merging, verifying or removing.
+### 7.2 Identifying a package
 
-- Trust the partition directory's name to tell which profile a package belongs to. The profile ID in a package's header (`0x371`) normally matches it, but nothing enforces that, so use it only as a cross-check. ✅
-- Older title updates (uppercase `TU_…` files) are stored in `Hdd1:\Cache`, outside `Content/` (§4.4). Tools that copy a title from `Content/` won't bring them along, and should say so rather than imply the copy is complete. 🔶
-- An SVOD package whose `.data/` directory is missing is incomplete, not a valid variant. xenia refuses to load one, and Velocity always expects the directory. ✅
+- **Read the header, not the name.** A package's file name is opaque (§5). Identify a package from its header, following the steps in §6.9.
+- **Check the magic first.** A file in a content-type directory whose magic isn't `CON `, `LIVE` or `PIRS` isn't a package (§6.2).
+- **Ownership:** trust the partition directory's name to tell which profile a package belongs to. The profile ID in the header (`0x371`) normally matches it, but nothing enforces that, so use it only as a cross-check (§2.1). ✅
+- **Signatures:** the magic says only which kind of signature a package *claims*. A `LIVE` label doesn't prove a package came from Xbox Live (§2.3).
 
-## 8. Sources *(to do)*
+### 7.3 Treating a package as one unit
 
-- **Real files:** the package headers in `packages/xcontent/src/parse-header/__tests__/fixtures/`:
-  - two GOD headers: `god-dead-island-riptide` and `god-south-park-tsot`
-  - two DLC packages: `dlc-halo-reach-anniversary` and `dlc-halo-wars`
+A package is the unit that is copied, moved, compared or removed.
 
-- **SVOD expansion:** Microsoft patent US20090143145A1, "Read Redirection of Physical Media" (https://patents.google.com/patent/US20090143145A1/en), says "a secure virtual optical disc layer 404 is used". The patent doesn't write "SVOD", but the phrase matches the initials and the feature. xenia, Velocity, rom-properties and Free60 use the acronym without expanding it. The Xeren wiki (https://www.xeren.com/wiki/xcontent.html) says "SVOD(Secure Virtual Offline Disk)", the old spec's wording, without citing a source.
+- **An STFS package** is one file.
+- **An SVOD package** is its header file, plus the `<header name>.data` directory next to it, plus every `Data####` file inside that directory (§3.2).
+
+**Checking that an SVOD package is complete.** An SVOD package is complete only if all of these are true: ✅ (§6.7)
+
+1. The `<header name>.data` directory exists. A missing directory means the package is incomplete, not a valid variant. xenia refuses to load one, and Velocity always expects the directory.
+2. The directory holds exactly as many files as the data file count at `0x39D`.
+3. They are named `Data0000` up to `Data` + (count − 1), with no gaps.
+4. Every file except the last is exactly `0xA290000` bytes, and the last is no larger.
+
+The sizes of the data files probably add up to the combined size at `0x3A1`. 🔶 That would make a fifth check.
+
+**Things that are always wrong:**
+
+- an STFS package (volume type 0) with a `.data` directory next to it
+- a `.data` directory with no header file of the same name
+
+### 7.4 Copying and moving
+
+- **Copy the whole unit,** and keep every name exactly as it is in the source.
+- **Keep the path:** copy a package to the same partition, Title ID and content-type directories as in the source.
+- **Order:** write an SVOD package's data files first and its header file last. A tool that finds packages by their header then won't mistake a half-copied package for a complete one.
+- **Limits when writing to FATX** (§5):
+  - every name must be at most 42 characters, including `.data`
+  - every file must be at most 4 GB
+- **Things a copy doesn't bring along.** A tool should say so when it matters:
+  - Older title updates, in `Hdd1:\Cache`, are outside `Content/` (§4.4). 🔶
+  - Saves and other profile content are tied to their profile, which a game may require on the target device (§2.2).
+  - Purchased content may need its licence on the target console. ❓ Whether a modded console checks it is unknown (§2.2).
+
+### 7.5 Comparing and verifying
+
+- **A full comparison** compares every file in the unit. For an SVOD package, that includes every data file.
+- **A quick comparison** can use the content ID at `0x32C` (§6.3). For an STFS package, the content ID is a hash of the header, and the header holds the hash of the top of the package's hash tree (§6.6). So two STFS packages with the same content ID should have the same contents. 🔶 For an SVOD package, the content ID covers the hash of only the first data file's first hash table (§6.7). So a quick comparison should also check that the data file names and sizes match.
+
+### 7.6 Removing
+
+- **Remove the whole unit.**
+- **Order:** remove an SVOD package's data directory first and its header file last. If removal is interrupted, what's left is a header without its data, which a tool can detect as incomplete (§7.3). The reverse would leave a `.data` directory that tools which find packages by their header never see.
+- **Empty directories:** after removing the last package in a content-type, Title ID or partition directory, a tool may remove the empty directory.
+
+## 8. Sources
+
+### 8.1 How sources are weighed
+
+| Kind of source | Examples | Best mark it can support |
+|---|---|---|
+| **Primary** | Microsoft material (support pages, patents, SDK names quoted in code); the source code of tools that read real packages; real files | ✅ |
+| **Community reference** | Free60, xboxdevwiki | ✅ for formats they document in detail; 🔶 otherwise |
+| **Secondary** | ConsoleMods, guides, forums, community lists | 🔶 at best |
+| **Search snippet only** | Pages that blocked direct reading, so only a search engine's summary was seen. Marked *(snippet)* below. | 🔶 at best |
+
+### 8.2 Main sources
+
+These are cited by file name below, without repeating their links.
+
+| Source | Link | Notes |
+|---|---|---|
+| **xenia** | https://github.com/xenia-project/xenia | Xbox 360 emulator. Its code shows how the console reads packages. |
+| **xenia-canary** | https://github.com/xenia-canary/xenia-canary | xenia's actively developed fork. Most xenia paths below are from xenia-canary. |
+| **Velocity** (XboxInternals) | https://github.com/hetelek/Velocity | Package, profile and FATX editor |
+| **Free60** | https://free60.org/ | Reverse-engineering wiki, mirrored at https://github.com/Free60Project/wiki |
+| **iso2god-rs** | https://github.com/iliazeus/iso2god-rs | Disc-to-GOD converter |
+| **Iso2God** (r4dius) | https://github.com/r4dius/Iso2God | The original Disc-to-GOD converter |
+| **rom-properties** | https://github.com/GerbilSoft/rom-properties | File-properties tool. Xbox 360 structures are in `src/libromdata/Console/xbox360_stfs_structs.h`. |
+| **emoose/xbox-reversing** | https://github.com/emoose/xbox-reversing | Format templates (`Xbox360Container.bt`) and `stfschk` |
+| **ConsoleMods** | https://consolemods.org/wiki/ | Modding wiki. It blocked direct reading, so its pages were mostly seen in snippets. |
+| **X1 research** | [x1-research-findings.md](session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
+| **This repo's fixtures** | `packages/xcontent/src/parse-header/__tests__/fixtures/` | Real package headers: two GOD headers (`god-dead-island-riptide`, `god-south-park-tsot`) and two DLC packages (`dlc-halo-reach-anniversary`, `dlc-halo-wars`) |
+
+### 8.3 §1: The big picture
 
 - **Package terminology:**
   - Microsoft patent US7337147 (https://patents.google.com/patent/US7337147) says "content package".
-  - xenia's `xam_content.cc` implements `XamContentCreate` and the `XCONTENT_DATA` type, names taken from Microsoft's SDK.
+  - xenia `xam_content.cc` implements `XamContentCreate` and the `XCONTENT_DATA` type, names taken from Microsoft's SDK.
   - Velocity's main class is `StfsPackage`.
   - Horizon says "Xbox 360 XContent Package ( 'LIVE'.'PIRS'.'CON')". ConsoleMods says "STFS/SVOD package".
   - xenia-canary uses `StfsContainerDevice` and `SvodContainerDevice`, and also says "XContent packages".
-  - emoose's stfschk calls itself an "STFS filesystem checker/verifier, used to check the validity of Xbox 360 XContent packages" (https://github.com/emoose/xbox-reversing/blob/master/stfschk/README.md).
-- **STFS hash table copies:** xenia-canary `stfs_xbox.h` (`read_only_format`: "if set, only uses a single backing-block per hash table (no resiliency), otherwise uses two"; `root_active_index`) and `stfs_container_device.cc`. Velocity `StfsPackage.cpp` (`SwapTable`, which is never called). emoose stfschk `Program.cs` expects read-only format for LIVE/PIRS and not for CON.
-- **STFS as a file system:** Free60 says STFS "is the file system used by the Xbox 360 for all packages", and that it is "secure and transacted (multiple file / directory revisions)" (https://free60.org/System-Software/Formats/STFS/). The dual hash blocks are in xenia's `stfs_xbox.h` (`root_active_index`) and Velocity's `SwapTable()`.
-- **Package formats:** only STFS (0) and SVOD (1) are defined as volume types in xenia (`XContentVolumeType`), rom-properties, Velocity (`enum FileSystem`) and Free60.
-- **PEC:** Free60 PEC page (https://free60.org/System-Software/Formats/PEC/); Velocity `XboxInternals/Stfs/XContentHeader.cpp` (`MetadataIsPEC`) and `Velocity/profileeditor.cpp`.
-- **Other formats:** the Free60 Formats section (FMIM, GPD, SPA, XCP, XDBF, XEX); xenia `XexModule::ApplyPatch` for XEXP; xenia `SvodLayoutType` for the disc layouts inside SVOD.
-- **NAND:** Free60 Boot Process (https://free60.org/System-Software/Boot_Process/): "1BL (Inside CPU)". Free60 NAND File System (https://free60.org/System-Software/NAND_File_System/) gives the layout: SMC, keyvault, CB, CD, CE (base kernel), CF/CG. Eaton Works (https://eaton-works.com/2023/01/09/how-microsoft-attempted-to-make-the-xbox-360-dashboard-load-faster/): the dashboard "was moved to the hard-drive's System Extended partition … still on the nand as a fallback."
-- **Homebrew distribution:** the Aurora installation guide (https://elmajor9.github.io/xbox360-aurora-guide/installation/aurora/) shows `Aurora.xex` with `Data/`, `Plugins/` and `Skins/`, installed to `Hdd1:/Aurora/`. GamerGen's FSD guide (https://gamergen.com/tutoriels/glitch-freestyle-dashboard-12824-2) gives `Hdd:\FSD\default.xex` and DashLaunch's `default.xex`. The XeXMenu package path comes from search snippets of ConsoleMods (https://consolemods.org/wiki/Xbox_360:XeXmenu) and Se7enSins, so it is unverified.
-- **Partitions:** xenia-canary `xam_content.cc` (`XamContentCreate`: the owner comes from `user_index`, and DLC is forced to xuid 0) and `content_manager.cc` (path `<{:016X} xuid>/<title>/<type>/<file>`; listing merges the common directory). Also `xam_avatar.cc`, `xam_user.cc` (gamer pictures under xuid 0) and `profile_manager.cc` (profile path `<xuid>/FFFE07D1/00010000/<xuid>`; IDs start `E0`). Velocity `profilecreatorwizard.cpp`. ConsoleMods' Files and Directories and Saves pages, from search snippets only. GamerGen's USB guide (https://gamergen.com/tutoriels/explorer-cle-usb-xtaf-4700-3/amp) for themes and gamer pictures under `0000000000000000/FFFE07D1/`.
-- **Licences:** Free60 STFS (licence entries: "License ID (XUID / PUID / console id)"). Velocity `StfsDefinitions.h` (licence types), `StfsPackage.cpp` (new CON packages are unrestricted) and `licensingdatadialog.cpp`. xenia-canary `xcontent.h` (`XContentLicense`). Wikipedia's Xbox Games Store article: the licence "is tied to both a specific user and to a specific console". Shacknews on the licence transfer tool (https://www.shacknews.com/article/53337/xbox-360-license-migration-tool).
-- **Signature kinds:** Free60 STFS: CON is "Found on many files such as cache files, profiles, saved games"; PIRS is "delivered by Microsoft through non-Xbox Live means such as system updates"; LIVE is "delivered over Xbox Live such as items from the Marketplace like themes". Velocity's `creationwizard.ui`: PIRS is "used for on disc content". ConsoleMods (search snippet): Disc to GOD "is signed as a digital GOD instead of a console signed disc installation".
-- **Moving saves:** Microsoft's USB flash drive FAQ (https://web.archive.org/web/20150609225744/http://support.xbox.com/en-US/xbox-360/accessories/usb-flash-drive-faq): "A USB flash drive is a great way to take your game saves or gamertag with you to another console."
-- **Purchased-content licences:** Microsoft's DRM FAQ (https://web.archive.org/web/20131117062807/http://support.xbox.com/en-US/xbox-360/downloadable-content/download-content): "The license has two parts: the system license and the local license." Xbox.com, 2006 (https://web.archive.org/web/20090826163526/http://www.xbox.com/en-US/community/personality/elle/20060814-shoptilyoudrop.htm): "The console license allows anyone to use that content on that console, online or off. The profile license allows you to use the content on any console, as long as you're signed in to Xbox Live".
-- **Unlocking:** Velocity `licensingdatadialog.cpp`: "Content unlocked this way can only be used on a JTAG/RGH/Dev. If you try and play on a retail, it will show up as corrupt."
-- **Re-signing:** Velocity `qthelpers.cpp` (`GetKVPath`, which looks for `KV_R.bin`/`KV_D.bin`) and `XContentHeader.cpp` (`ResignHeader`, which takes the certificate and key from the keyvault). iso2god-rs `src/god/empty_live.bin` (a blank LIVE header).
-- **Modded consoles:** freeBOOT changelog and patch list ("Disable PIRS/LIVE Signature Check"; https://assemblergames.org/viewtopic.php?t=30068). XeUnshackle (https://github.com/Byrom90/XeUnshackle) notes that xeBuild applies the same patches. Free60 PEC page: a package with mismatched IDs is "seen as a corrupted file".
-- **Files inside profiles:** Free60 GPD page ("each named under their respective titles id (e.g. 4D5307E6.gpd for Halo 3)"; title entries "are only located in the FFFE07D1 gpd") and Profile Account page (https://free60.org/System-Software/Profile_Account/). Velocity `XboxInternals/Gpd/` (`EntryType`, `DashboardGpd`) and `XboxInternals/Account/Account.cpp`. xenia-canary `user_profile.cc` (`{:08X}.gpd`) and `profile_manager.cc`.
-- **Avatar award items:** xenia-canary `xgi_app.cc` (`XUserAwardAvatarAssets` passes only the user and award ID) and `xam_avatar.cc` (xuid 0, the awarding title, `kAvatarItem`). Free60 GPD: title flag 0x10 means "Avatar Award Unlocked, needs to be downloaded". Velocity `avatarassetdownloader.cpp` (downloads from `download.xboxlive.com/content/<titleID>/avataritems/`). NextGenUpdate (https://nextgenupdate.com/forums/xbox-360-cheats-customization/67307-how-get-avatar-items-free.html) and Digiex AvatarFridayPatcher (https://digiex.net/threads/avatarfridaypatchergui.16256/) for the `<TitleID>/00009000` location of bought items.
-- **Profile images and avatars:** Velocity `profilecreatorwizard.cpp` (writes `tile_64.png` and `tile_32.png`, and the avatar image entry `0x8007` in `FFFE07D1.gpd`), `XdbfDefininitions.h` (`AvatarImage`, `GamercardAvatarInfo1/2`) and `profileeditor.cpp` (builds award items as AvatarItem packages). xenia-canary `user_profile.h` (tile file names), `user_settings.h` (`XPROFILE_GAMERCARD_AVATAR_INFO_1` = `0x63E80044`) and `xam_avatar.cc` (an installed award item is `kAvatarItem` with xuid 0).
-- **System update storage packs:** RGLoader `RGLoader/sysext.cpp` (https://github.com/RGLoader/RGLoader): mounts `\Device\Harddisk0\SystemExtPartition\` and builds `Content\0000000000000000\<TID>\<Type>\<name>` on it, creating `Content\...\FFFE07DF\00008000`. c373z/xenia-guide-hud `system_update_import.cc`: "The hard drive's SystemExtPartition as an installed update leaves it". Digiex on the optional media update (https://digiex.net/threads/xbox-360-optional-media-update-download.3143/): copied to `\Content\0000000000000000\FFFE07DF\00000002`. patatetom/xtaf README: `Content/0000000000000000/FFFE07DF/00040000/ContentCache.pkg`.
-- **Package names:** xenia-canary `kernel/xam/xcontent/xcontent.h`: the header's `content_id[0x14]`, and `XCONTENT_DATA`'s `file_name_raw[42]`, with the comments "DLC packages usually fill the entire file_name_raw array" and "Package is located via device_id/content_type/file_name".
-- **FATX names:** Free60 FATX: "Maximum Filename Length: 0x2A (42)". Velocity `XboxInternals/Fatx/FatxConstants.h` (`FATX_ENTRY_MAX_NAME_LENGTH 0x2A`), `IO/FatxIO.cpp` ("Entry name must be less than 42 characters") and `FatxDrive.cpp` (the allowed characters). The No-Intro Xbox 360 dats (https://github.com/libretro-mirrors/nointro-db): in the DLC dat, 4,555 package names are 42 hex characters, and the Games on Demand dat's headers are 34.
-- **Hard drive areas:** Free60 FATX (https://free60.org/System-Software/Systems/FATX/: retail offsets are "built in to the kernel"); Velocity `XboxInternals/Fatx/FatxConstants.h` and `FatxDrive.cpp` ("System Extended", "System Auxiliary", "Content"). Eaton Works on the 2008 system areas and the 2012 dashboard move (https://eaton-works.com/2023/01/09/how-microsoft-attempted-to-make-the-xbox-360-dashboard-load-faster/).
-- **System Title IDs:** xenia-canary `title_id_utils.h` (`kDashboardID`, `kAvatarEditorID`); a community list (https://gist.github.com/AdrianCassar/c0d05a14608168259232b3ed8c77f28c); Velocity `profilecleanerwizard.cpp` (`FFFE07DE`).
-- **Title ID structure:** xenia-canary `src/xenia/kernel/title_id_utils.h` (`GetTitlePublisher`; `IsValidGameId`: `(title_id >> 16) != 0xFFFE`; `IsXblaTitle`; `IsAppTitle`; `IsOriginalXboxTitle`: `(title_id & 0x7FFF) < 0x7D0`). xboxdevwiki Xbe (https://xboxdevwiki.net/Xbe): "usually 2 ASCII letters for the publisher … followed by a u16 integer game number". Velocity `XContentHeader.h` and xenia-canary `xex2_info.h` for where it is stored. ConsoleMods' List of Multi-ID Games (https://consolemods.org/wiki/Xbox_360:List_of_Multi-ID_Games, search snippet only) for releases with different Title IDs.
-- **More system Title IDs:** a private XAM header quoted in open-source projects (`XENON_SIGNUP_TITLE_ID 0xFFFE07DE`, `XCODEC_TYPE_AAC_TITLE_ID 0xFFFE07DF`); grimdoomer/Halo-2-Unlock (`xbox.xex` has "Title Id: FFFE07D2"); Horizon `TitleCrawler.cs` (treats the `FFFE07xx` block as system titles); the Sentry community game list (Element18592/Sentry) for apps and homebrew; J-Runner `DashLaunch.cs` for `C0DE9999`.
-- **Ripped music:** FATXplorer (https://fatxplorer.eaton-works.com/how-to-organize-and-extract-xbox-360-music-files/): "Content Partition:\\mindex" holds "a mindex.xmi file and a media folder". Free60 FMIM (https://free60.org/System-Software/Formats/FMIM/): "FMIM" magic, track metadata, then WMA audio from `0xD08`.
-- **Saves:** xenia-canary `kernel/xam/xcontent/xcontent.h` (`file_name_raw[42]`; create flags `kNoProfileTransfer`, `kNoDeviceTransfer`, `kAllowProfileTransfer` and `kMoveOnly`; header bits `profile_transfer`, `device_transfer` and `move_only_transfer`); Velocity `XContentHeader.cpp` (`transferFlags`). Forum report (https://forums.penny-arcade.com/discussion/21367/360-save-file-question): "Some games allow cross-profile copying… The vast majority don't."
-- **Saves for other purposes:**
-  - *Halo 3* Forge maps: Nexus Mods thread (https://www.nexusmods.com/halothemasterchiefcollection/mods/456?tab=posts).
-  - *Rock Band 3* save and song cache: https://rhythmgamingworld.com/?p=395965.
-  - *Mass Effect 2* import: GameBanshee (https://gamebanshee.com/k8ahr) and Shacknews (https://www.shacknews.com/article/61759/mass-effect-2-details-about).
-  - *Dragon Age II* import: Shacknews (https://www.shacknews.com/article/65900/dragon-age-origins-save-file).
-  - Alternate title IDs: xenia-canary `xam_content_aggregate.cc` ("used by games to load saves from other titles") and `xex2_info.h` (`XEX_HEADER_ALTERNATE_TITLE_IDS`).
-  - Modding workflow: WeMod forum guides (https://community.wemod.com/t/dead-or-alive-xtreme-2-save-editor/2132).
-  - BadUpdate: https://github.com/grimdoomer/Xbox360BadUpdate ("the Rock Band save game exploit is specific to Rock Band Blitz") and Free60 (https://free60.org/Hacks/Bad_Update_Hack/).
-  - Game cache API: xenia-canary `xam_table.inc` (`XamCacheStoreFile` and related).
-- **Licence store:** xenia-canary `xbox.h` (`kLicenseStore`); Velocity `StfsConstants.h` and `creationwizard.cpp` (offered under CON and LIVE); Free60 STFS lists "0x000F0000: License Store" without explanation.
-- **Title updates:** ConsoleMods' Title Updates and Manually Installing Title Updates pages (search snippets only): lowercase `tu…` files go in `Hdd1/Content/0000000000000000/TITLE_ID/000B0000`, uppercase `TU_…` files in `Hdd1/Cache`. Microsoft's clear-cache page (https://support.xbox.com/en-RS/help/xbox-360/console/clear-system-cache). xenia-canary `kernel_state.cc` loads title updates from Installer content. emoose `Xbox360Container.bt`: Installer subtypes `TITLE_UPDATE = 'TUPD'` and `PROGRESS_CACHE_TITLE_UPDATE = 'P$TU'`.
-- **SPA:** xenia-canary `kernel_state.cc` (`module_xdbf()` reads the XEX resource named after the Title ID) and `xdbf/spa_info.h`.
-- **XCP:** Free60 XCP page (https://free60.org/System-Software/Formats/XCP/): "encrypted and compressed (with zlib)", "Underneath, they are STFS containers".
-- **XUI archives:** xenia-canary `xam_info.cc` (`file://media:/{}.xzp` and `section://` resource paths).
-- **Disc installs:** Velocity `XboxInternals/Disc/Svod.cpp` (SVOD accepted only for GameOnDemand and InstalledGame). The Le Fluffie guide (https://stainedfuture.wordpress.com/2010/01/01/le_fluffie/) converts by copying `00004000` to `00007000` and changing only the header. ConsoleMods (search snippet): "a console-signed SVOD container similar to a Game on Demand". Microsoft (https://support.xbox.com/en-US/help/xbox-360/games/game-setup/install-play-delete-game): "you still need to have the game disc in the disc drive".
-- **SUStoragePack (`00008000`):** xenia-canary `xbox.h` (`kSUStoragePack`, "SU Storage Pack"); emoose `Xbox360Container.bt` (`SUStoragePack = 0x8000`). XeBuild `tools/su_check/su_check/main.c` (https://github.com/cOzInABox/XeBuild): the system update manifest lists items with `dwContentType; // 0x14 ie 0x00008000` and `dwContentTitleId; // 0x18 ie 0xFFFE07DF`. RGLoader `sysext.cpp` (https://github.com/RGLoader/RGLoader): `SEP:\Content\0000000000000000\fffe07df\00008000`. Velocity's name, AvatarAssetPack, matches the best-known package of this type, the avatar system's base assets.
-- **Content types:** xenia `src/xenia/xbox.h` (https://github.com/xenia-project/xenia/blob/master/src/xenia/xbox.h); Velocity `XboxInternals/Stfs/StfsConstants.h` (https://github.com/hetelek/Velocity/blob/master/XboxInternals/Stfs/StfsConstants.h); Free60 STFS (https://free60.org/System-Software/Formats/STFS/); rom-properties `xbox360_stfs_structs.h` (https://github.com/GerbilSoft/rom-properties/blob/master/src/libromdata/Console/xbox360_stfs_structs.h).
+  - emoose's stfschk calls itself an "STFS filesystem checker/verifier, used to check the validity of Xbox 360 XContent packages".
+- **NAND:**
+  - Free60 Boot Process (https://free60.org/System-Software/Boot_Process/): "1BL (Inside CPU)".
+  - Free60 NAND File System (https://free60.org/System-Software/NAND_File_System/) gives the layout: SMC, keyvault, CB, CD, CE (base kernel), CF/CG.
+  - Eaton Works (https://eaton-works.com/2023/01/09/how-microsoft-attempted-to-make-the-xbox-360-dashboard-load-faster/): the dashboard "was moved to the hard-drive's System Extended partition … still on the nand as a fallback."
+- **Homebrew as raw files:**
+  - The Aurora installation guide (https://elmajor9.github.io/xbox360-aurora-guide/installation/aurora/) shows `Aurora.xex` with `Data/`, `Plugins/` and `Skins/`, installed to `Hdd1:/Aurora/`.
+  - GamerGen's FSD guide (https://gamergen.com/tutoriels/glitch-freestyle-dashboard-12824-2) gives `Hdd:\FSD\default.xex` and DashLaunch's `default.xex`.
+- **Title IDs:**
+  - xenia-canary `src/xenia/kernel/title_id_utils.h`:
+    - `GetTitlePublisher`
+    - `IsValidGameId`: `(title_id >> 16) != 0xFFFE`
+    - `IsXblaTitle` and `IsAppTitle`
+    - `IsOriginalXboxTitle`: `(title_id & 0x7FFF) < 0x7D0`
+  - xboxdevwiki Xbe (https://xboxdevwiki.net/Xbe): "usually 2 ASCII letters for the publisher … followed by a u16 integer game number".
+  - ConsoleMods' List of Multi-ID Games (https://consolemods.org/wiki/Xbox_360:List_of_Multi-ID_Games) *(snippet)*: releases with different Title IDs.
+- **Content types** (also §4.2): see §8.6.
 
-From the X1 research: iso2god-rs, Iso2God (r4dius), xenia, Velocity/XboxInternals, the Free60 STFS page, ConsoleMods' "Creating Game Backups" page, AuroraScripts (`DiscInstaller`, `DiscRipper`), and others.
+### 8.4 §2: Who owns content, and who can use it
+
+- **Partitions:**
+  - xenia-canary `xam_content.cc`: in `XamContentCreate`, the owner comes from `user_index`, and DLC is forced to xuid 0.
+  - xenia-canary `content_manager.cc`: the path is `<{:016X} xuid>/<title>/<type>/<file>`, and listing merges the common directory.
+  - xenia-canary `xam_avatar.cc`, and `xam_user.cc` (gamer pictures under xuid 0).
+  - xenia-canary `profile_manager.cc`: the profile path is `<xuid>/FFFE07D1/00010000/<xuid>`, and IDs start `E0`.
+  - Velocity `profilecreatorwizard.cpp`.
+  - ConsoleMods' Files and Directories and Saves pages *(snippet)*.
+  - GamerGen's USB guide (https://gamergen.com/tutoriels/explorer-cle-usb-xtaf-4700-3/amp): themes and gamer pictures under `0000000000000000/FFFE07D1/`.
+- **Signature kinds:**
+  - Free60 STFS (https://free60.org/System-Software/Formats/STFS/):
+    - CON is "Found on many files such as cache files, profiles, saved games".
+    - PIRS is "delivered by Microsoft through non-Xbox Live means such as system updates".
+    - LIVE is "delivered over Xbox Live such as items from the Marketplace like themes".
+  - Velocity `creationwizard.ui`: PIRS is "used for on disc content".
+  - ConsoleMods *(snippet)*: Disc to GOD "is signed as a digital GOD instead of a console signed disc installation".
+- **Licences:**
+  - Free60 STFS: licence entries are "License ID (XUID / PUID / console id)".
+  - Velocity `StfsDefinitions.h` (licence types), `StfsPackage.cpp` (new CON packages are unrestricted) and `licensingdatadialog.cpp`.
+  - xenia-canary `xcontent.h` (`XContentLicense`).
+  - Wikipedia's Xbox Games Store article: the licence "is tied to both a specific user and to a specific console".
+  - Shacknews on the licence transfer tool (https://www.shacknews.com/article/53337/xbox-360-license-migration-tool).
+- **Purchased-content licences:**
+  - Microsoft's DRM FAQ (https://web.archive.org/web/20131117062807/http://support.xbox.com/en-US/xbox-360/downloadable-content/download-content): "The license has two parts: the system license and the local license."
+  - Xbox.com, 2006 (https://web.archive.org/web/20090826163526/http://www.xbox.com/en-US/community/personality/elle/20060814-shoptilyoudrop.htm): "The console license allows anyone to use that content on that console, online or off. The profile license allows you to use the content on any console, as long as you're signed in to Xbox Live".
+- **Moving saves:** Microsoft's USB flash drive FAQ (https://web.archive.org/web/20150609225744/http://support.xbox.com/en-US/xbox-360/accessories/usb-flash-drive-faq): "A USB flash drive is a great way to take your game saves or gamertag with you to another console."
+- **Unlocking:** Velocity `licensingdatadialog.cpp`: "Content unlocked this way can only be used on a JTAG/RGH/Dev. If you try and play on a retail, it will show up as corrupt."
+- **Re-signing:**
+  - Velocity `qthelpers.cpp` (`GetKVPath`, which looks for `KV_R.bin`/`KV_D.bin`) and `XContentHeader.cpp` (`ResignHeader`, which takes the certificate and key from the keyvault).
+  - iso2god-rs `src/god/empty_live.bin` (a blank LIVE header).
+- **Modded consoles:**
+  - The freeBOOT changelog and patch list (https://assemblergames.org/viewtopic.php?t=30068): "Disable PIRS/LIVE Signature Check".
+  - XeUnshackle (https://github.com/Byrom90/XeUnshackle) notes that xeBuild applies the same patches.
+  - Free60 PEC page: a package with mismatched IDs is "seen as a corrupted file".
+
+### 8.5 §3: Package formats
+
+- **STFS as a file system:** Free60 STFS: STFS "is the file system used by the Xbox 360 for all packages", and it is "secure and transacted (multiple file / directory revisions)".
+- **STFS hash table copies:**
+  - xenia-canary `stfs_xbox.h`: `read_only_format` is described as "if set, only uses a single backing-block per hash table (no resiliency), otherwise uses two". Also `root_active_index`, and `stfs_container_device.cc`.
+  - Velocity `StfsPackage.cpp`: `SwapTable`, which is never called.
+  - emoose stfschk `Program.cs` expects read-only format for LIVE and PIRS, and not for CON.
+- **Package formats:** only STFS (0) and SVOD (1) are defined as volume types:
+  - xenia (`XContentVolumeType`)
+  - rom-properties
+  - Velocity (`enum FileSystem`)
+  - Free60
+- **SVOD layout:**
+  - iso2god-rs `src/god/file_layout.rs`, xenia `svod_container_device.cc` and Velocity `XboxInternals/Disc/Svod.cpp`.
+  - The other sources are in the X1 research (§8.2).
+- **SVOD on real files:** this repo's fixtures (§8.2).
+- **SVOD name:**
+  - Microsoft patent US20090143145A1, "Read Redirection of Physical Media" (https://patents.google.com/patent/US20090143145A1/en), says "a secure virtual optical disc layer 404 is used". The patent doesn't write "SVOD", but the phrase matches the initials and the feature.
+  - xenia, Velocity, rom-properties and Free60 use the acronym without expanding it.
+  - The Xeren wiki (https://www.xeren.com/wiki/xcontent.html) says "SVOD(Secure Virtual Offline Disk)", the old spec's wording, without citing a source.
+- **Disc installs:**
+  - Velocity `XboxInternals/Disc/Svod.cpp`: SVOD is accepted only for GameOnDemand and InstalledGame.
+  - The Le Fluffie guide (https://stainedfuture.wordpress.com/2010/01/01/le_fluffie/) converts a disc install by copying `00004000` to `00007000` and changing only the header.
+  - ConsoleMods *(snippet)*: "a console-signed SVOD container similar to a Game on Demand".
+  - Microsoft (https://support.xbox.com/en-US/help/xbox-360/games/game-setup/install-play-delete-game): "you still need to have the game disc in the disc drive".
+- **PEC:** Free60 PEC page (https://free60.org/System-Software/Formats/PEC/); Velocity `XboxInternals/Stfs/XContentHeader.cpp` (`MetadataIsPEC`) and `Velocity/profileeditor.cpp`.
+- **Files inside packages:**
+  - **GPD and Account:**
+    - Free60 GPD page: "each named under their respective titles id (e.g. 4D5307E6.gpd for Halo 3)", and title entries "are only located in the FFFE07D1 gpd".
+    - Free60 Profile Account page (https://free60.org/System-Software/Profile_Account/).
+    - Velocity `XboxInternals/Gpd/` (`EntryType`, `DashboardGpd`) and `XboxInternals/Account/Account.cpp`.
+    - xenia-canary `user_profile.cc` (`{:08X}.gpd`) and `profile_manager.cc`.
+  - **SPA:** xenia-canary `kernel_state.cc` (`module_xdbf()` reads the XEX resource named after the Title ID) and `xdbf/spa_info.h`.
+  - **XEXP:** xenia `XexModule::ApplyPatch`.
+  - **FMIM:** Free60 FMIM (https://free60.org/System-Software/Formats/FMIM/): "FMIM" magic, track metadata, then WMA audio from `0xD08`.
+  - **XCP:** Free60 XCP (https://free60.org/System-Software/Formats/XCP/): "encrypted and compressed (with zlib)", "Underneath, they are STFS containers".
+  - **XUI archives:** xenia-canary `xam_info.cc` (`file://media:/{}.xzp` and `section://` resource paths).
+  - **Others:** the Free60 Formats section lists FMIM, GPD, SPA, XCP, XDBF and XEX.
+
+### 8.6 §4: Content types
+
+- **Names and IDs:**
+  - xenia `src/xenia/xbox.h`
+  - Velocity `XboxInternals/Stfs/StfsConstants.h`
+  - Free60 STFS
+  - rom-properties `xbox360_stfs_structs.h`
+- **SUStoragePack (`00008000`):**
+  - xenia-canary `xbox.h` (`kSUStoragePack`, "SU Storage Pack") and emoose `Xbox360Container.bt` (`SUStoragePack = 0x8000`).
+  - XeBuild `tools/su_check/su_check/main.c` (https://github.com/cOzInABox/XeBuild): the system update manifest lists items with `dwContentType; // 0x14 ie 0x00008000` and `dwContentTitleId; // 0x18 ie 0xFFFE07DF`.
+  - RGLoader `sysext.cpp` (https://github.com/RGLoader/RGLoader): `SEP:\Content\0000000000000000\fffe07df\00008000`.
+  - Velocity's name, AvatarAssetPack, matches the best-known package of this type, the avatar system's base assets.
+- **Licence store:**
+  - xenia-canary `xbox.h` (`kLicenseStore`).
+  - Velocity `StfsConstants.h`, and `creationwizard.cpp` (offered under CON and LIVE).
+  - Free60 STFS lists "0x000F0000: License Store" without explanation.
+- **Games** (§4.3): the X1 research (§8.2), for Aurora's ripping methods and extracted rips. The XeXMenu package path comes from ConsoleMods (https://consolemods.org/wiki/Xbox_360:XeXmenu) and Se7enSins *(snippet)*.
+- **Title updates** (§4.4):
+  - ConsoleMods' Title Updates and Manually Installing Title Updates pages *(snippet)*: lowercase `tu…` files go in `Hdd1/Content/0000000000000000/TITLE_ID/000B0000`, and uppercase `TU_…` files in `Hdd1/Cache`.
+  - Microsoft's clear-cache page (https://support.xbox.com/en-RS/help/xbox-360/console/clear-system-cache).
+  - xenia-canary `kernel_state.cc` loads title updates from Installer content.
+  - emoose `Xbox360Container.bt`: Installer subtypes `TITLE_UPDATE = 'TUPD'` and `PROGRESS_CACHE_TITLE_UPDATE = 'P$TU'`.
+- **Profile images and avatars** (§4.5):
+  - Velocity `profilecreatorwizard.cpp`: writes `tile_64.png` and `tile_32.png`, and the avatar image entry `0x8007` in `FFFE07D1.gpd`.
+  - Velocity `XdbfDefininitions.h` (`AvatarImage`, `GamercardAvatarInfo1/2`) and `profileeditor.cpp` (builds award items as AvatarItem packages).
+  - xenia-canary `user_profile.h` (tile file names), `user_settings.h` (`XPROFILE_GAMERCARD_AVATAR_INFO_1` = `0x63E80044`) and `xam_avatar.cc` (an installed award item is `kAvatarItem` with xuid 0).
+- **Avatar award items** (§4.5):
+  - xenia-canary `xgi_app.cc` (`XUserAwardAvatarAssets` passes only the user and award ID) and `xam_avatar.cc` (xuid 0, the awarding title, `kAvatarItem`).
+  - Free60 GPD: title flag 0x10 means "Avatar Award Unlocked, needs to be downloaded".
+  - Velocity `avatarassetdownloader.cpp`: downloads from `download.xboxlive.com/content/<titleID>/avataritems/`.
+  - For where bought items are stored, `<TitleID>/00009000`:
+    - NextGenUpdate (https://nextgenupdate.com/forums/xbox-360-cheats-customization/67307-how-get-avatar-items-free.html)
+    - Digiex's AvatarFridayPatcher thread (https://digiex.net/threads/avatarfridaypatchergui.16256/)
+- **System content** (§4.6):
+  - RGLoader `RGLoader/sysext.cpp` mounts `\Device\Harddisk0\SystemExtPartition\` and builds `Content\0000000000000000\<TID>\<Type>\<name>` on it, creating `Content\...\FFFE07DF\00008000`.
+  - c373z/xenia-guide-hud `system_update_import.cc`: "The hard drive's SystemExtPartition as an installed update leaves it".
+  - Digiex on the optional media update (https://digiex.net/threads/xbox-360-optional-media-update-download.3143/): copied to `\Content\0000000000000000\FFFE07DF\00000002`.
+  - patatetom/xtaf README: `Content/0000000000000000/FFFE07DF/00040000/ContentCache.pkg`.
+- **System Title IDs** (§4.6):
+  - xenia-canary `title_id_utils.h` (`kDashboardID`, `kAvatarEditorID`).
+  - A private XAM header quoted in open-source projects: `XENON_SIGNUP_TITLE_ID 0xFFFE07DE` and `XCODEC_TYPE_AAC_TITLE_ID 0xFFFE07DF`.
+  - grimdoomer/Halo-2-Unlock: `xbox.xex` has "Title Id: FFFE07D2".
+  - Horizon `TitleCrawler.cs` treats the `FFFE07xx` block as system titles.
+  - Velocity `profilecleanerwizard.cpp` (`FFFE07DE`).
+  - Community lists: https://gist.github.com/AdrianCassar/c0d05a14608168259232b3ed8c77f28c, and the Sentry game list (Element18592/Sentry) for apps and homebrew.
+  - J-Runner `DashLaunch.cs` for `C0DE9999`.
+- **Saves** (§4.8):
+  - xenia-canary `kernel/xam/xcontent/xcontent.h`:
+    - `file_name_raw[42]`
+    - the create flags `kNoProfileTransfer`, `kNoDeviceTransfer`, `kAllowProfileTransfer` and `kMoveOnly`
+    - the header bits `profile_transfer`, `device_transfer` and `move_only_transfer`
+  - Velocity `XContentHeader.cpp` (`transferFlags`).
+  - A forum report (https://forums.penny-arcade.com/discussion/21367/360-save-file-question): "Some games allow cross-profile copying… The vast majority don't."
+- **Other data games create, and other uses of saves** (§4.8):
+  - *Halo 3* Forge maps: a Nexus Mods thread (https://www.nexusmods.com/halothemasterchiefcollection/mods/456?tab=posts).
+  - *Rock Band 3*'s save and song cache: https://rhythmgamingworld.com/?p=395965.
+  - *Mass Effect 2*'s import: GameBanshee (https://gamebanshee.com/k8ahr) and Shacknews (https://www.shacknews.com/article/61759/mass-effect-2-details-about).
+  - *Dragon Age II*'s import: Shacknews (https://www.shacknews.com/article/65900/dragon-age-origins-save-file).
+  - Alternate title IDs: xenia-canary `xam_content_aggregate.cc` ("used by games to load saves from other titles") and `xex2_info.h` (`XEX_HEADER_ALTERNATE_TITLE_IDS`).
+  - The modding workflow: WeMod forum guides (https://community.wemod.com/t/dead-or-alive-xtreme-2-save-editor/2132).
+  - BadUpdate: https://github.com/grimdoomer/Xbox360BadUpdate ("the Rock Band save game exploit is specific to Rock Band Blitz") and Free60 (https://free60.org/Hacks/Bad_Update_Hack/).
+  - The game cache API: xenia-canary `xam_table.inc` (`XamCacheStoreFile` and related).
+- **Ripped music** (§4.9): FATXplorer (https://fatxplorer.eaton-works.com/how-to-organize-and-extract-xbox-360-music-files/): "Content Partition:\\mindex" holds "a mindex.xmi file and a media folder".
+
+### 8.7 §5: File systems
+
+- **FATX names:**
+  - Free60 FATX (https://free60.org/System-Software/Systems/FATX/): "Maximum Filename Length: 0x2A (42)".
+  - Velocity `XboxInternals/Fatx/FatxConstants.h` (`FATX_ENTRY_MAX_NAME_LENGTH 0x2A`), `IO/FatxIO.cpp` ("Entry name must be less than 42 characters") and `FatxDrive.cpp` (the allowed characters).
+- **Package names:**
+  - The No-Intro Xbox 360 dats (https://github.com/libretro-mirrors/nointro-db): in the DLC dat, 4,555 package names are 42 hex characters. The Games on Demand dat's headers are 34.
+  - xenia-canary `kernel/xam/xcontent/xcontent.h`: the header's `content_id[0x14]`, and `XCONTENT_DATA`'s `file_name_raw[42]`. Its comments say "DLC packages usually fill the entire file_name_raw array" and "Package is located via device_id/content_type/file_name".
+- **FATX case:**
+  - xenia-canary `src/xenia/vfs/entry.cc`: `Entry::GetChild` matches each path part with `xe::utf8::equal_case`.
+  - Velocity `XboxInternals/Fatx/FatxDrive.cpp` and mborgerson/fatx `libfatx/fatx_dir.c` use exact `strcmp` matching.
+  - Free60 FATX: names are stored as given, "padded with either 0x00 or 0xFF bytes".
+- **Hard drive areas:**
+  - Free60 FATX: retail offsets are "built in to the kernel".
+  - Velocity `XboxInternals/Fatx/FatxConstants.h` and `FatxDrive.cpp` ("System Extended", "System Auxiliary", "Content").
+  - Eaton Works (§8.3) on the 2008 system areas and the 2012 dashboard move.
+- **USB `Data####` files:** Digiex (https://digiex.net/threads/please-help-how-can-i-make-my-usb-xtaf-files-data0000-files-usable.12890/), and Free60's USB page.
+
+### 8.8 §6: Package format in detail
+
+- **Header and metadata layout:**
+  - xenia-canary `kernel/xam/xcontent/xcontent.h` (`XContentHeader`, `XContentMetadata`, `XContentLicense`, `XContentAttributes`).
+  - xenia-canary `kernel/util/xex2_info.h` (`xex2_opt_execution_info`).
+  - Velocity `XboxInternals/Stfs/XContentHeader.cpp` and `StfsDefinitions.h` (`Certificate`).
+- **STFS and SVOD structures:** xenia-canary `vfs/devices/stfs_xbox.h` (`StfsVolumeDescriptor`, `StfsHashEntry`, `StfsHashTable`, `StfsDirectoryEntry`, `SvodDeviceDescriptor`) and `xcontent_devices/stfs_container_device.cc` (`BlockToOffset`).
+- **SVOD layouts:** xenia-canary `xcontent_devices/svod_container_device.cc` (`SvodLayoutType`).
+- **Languages:** xenia-canary `xbox.h` (`XLanguage`) and `xcontent.h` (`kNumLanguagesV1 = 9`, `kNumLanguagesV2 = 12`).
+- **Transfer flags:** Velocity `Velocity/transferflagsdialog.cpp` (explicit bit values).
+- **String encoding:** rom-properties (UTF-16BE, and the UTF-8-as-UTF-16BE problem), and the *South Park* fixture (§8.2).
+- **Header sizes:** emoose `Xbox360Container.bt` (LIVE and PIRS headers are `0xAD0E` "because they include XCONTENT_METADATA_INSTALLER"), and the GOD fixtures (§8.2).
+
+### 8.9 §7: Rules for tools
+
+§7's rules are built on the sections they cite. Their sources are listed under those sections above.
 
 ## 9. To check against a real drive
 
@@ -650,4 +1120,5 @@ These questions can be settled by looking at a real `Content/` directory. They a
 8. **Licences on a modded console (§2.2).** Does purchased content copied to another modded console play without being unlocked?
 9. **Avatar award items (§4.5).** Is an awarded item stored at `Content/0000000000000000/<awarding TitleID>/00009000/`, and what is its header labelled (`PIRS`, `LIVE` or `CON`)?
 10. **Player-made content (§4.8).** What content type do *Halo 3* Forge maps, saved films and screenshots, and *Minecraft* worlds use?
-11. **The X1 question.** What format are the user's ripped games in (§4.3), and were past copies complete?
+11. **FATX case (§5).** Does the console find content in lowercase directories, such as `4d5307e6/000d0000/`, and a data directory spelled `<name>.DATA`?
+12. **The X1 question.** What format are the user's ripped games in (§4.3), and were past copies complete?
