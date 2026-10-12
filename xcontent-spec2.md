@@ -66,7 +66,7 @@ Content/
 
 > **Terminology note:** this specification defines the term *partition*. The wider Xbox 360 community has no agreed name for these directories. *Partition* was chosen because each directory holds content for one owner, and no two overlap. It has nothing to do with the partitions of a hard drive.
 
-Not everything sits in this `Content/` directory. System software updates are installed to separate system areas of the hard drive (§4.6). Game caches and backward-compatibility data use other areas of the drive. Homebrew dashboards such as Aurora, and some homebrew software, also keep their own files elsewhere. ✅ §4.9 collects what's known about content outside `Content/`.
+Not everything sits in this `Content/` directory. System software updates are installed to separate system areas of the hard drive (§4.7). Game caches and backward-compatibility data use other areas of the drive. Homebrew dashboards such as Aurora, and some homebrew software, also keep their own files elsewhere. ✅ §4.10 collects what's known about content outside `Content/`.
 
 > **Aside: games and apps as raw files.** A game or app doesn't have to be a package. It can also be stored as a plain directory of files, with a `.xex` file at the top, usually `default.xex`. ✅
 > - **XEX** (Xbox Executable) is the Xbox 360's program file format, similar to a `.exe` file on Windows. The console runs the `.xex`, and the program reads the other files in its directory. ✅
@@ -84,9 +84,9 @@ Every game and app has a **Title ID**: a 4-byte number, written as 8 uppercase h
 - **Different releases can have different Title IDs.** Some regional versions and re-releases of the same game have their own. 🔶
 - **How Title IDs are built.** By convention, the first two bytes are a two-letter publisher code (`4D53` is "MS", for Microsoft), and the last two are that publisher's game number. Original Xbox games are numbered below 2000, and Xbox 360 games from 2000 up. ✅ This is only a convention, which the console doesn't enforce. Tools mustn't assume the first two bytes are letters. ✅
 - **Special ranges:**
-  - Title IDs starting `FFFE` are reserved for system software, such as `FFFE07D1` for the dashboard (§4.6). ✅
+  - Title IDs starting `FFFE` are reserved for system software, such as `FFFE07D1` for the dashboard (§4.7). ✅
   - Title IDs whose publisher code starts with "X" (`58`) are Microsoft platform titles. "XA" is Xbox Live Arcade, "XH" and "XJ" are apps, and "XN" and "XM" are system experiences, such as the avatar editor. ✅
-  - Homebrew uses made-up Title IDs (§4.6). 🔶
+  - Homebrew uses made-up Title IDs (§4.7). 🔶
 
 ### Content types
 
@@ -135,14 +135,14 @@ Typical content in the public partition:
 - Games on Demand (`00007000`), Arcade games (`000D0000`) and demos (`00080000`) 🔶
 - disc installs (`00004000`) 🔶
 
-**A profile partition** holds content tied to one profile. Its name is the profile's ID: 16 hex digits starting `E0`, which is also the file name of the profile package. ✅ It is not the profile's Xbox Live ID, which is a different number stored inside the profile. ✅
+**A profile partition** holds content tied to one profile. Its name is the profile's ID: 16 hex digits, which is also the file name of the profile package. ✅ The digits typically start with `E`, for example `E812CECF9EA2AF5F`. 🔶 It is not the profile's Xbox Live ID, which is a different number stored inside the profile. ✅
 
-A profile partition exists only on a device where something belonging to that profile is stored. 🔶 So a device can have a profile partition without the profile itself: for example, a profile's saves can be on the hard drive while the profile is on a memory unit. A partition can also be left behind after its profile has been deleted. ❓
+A profile partition exists only on a device where something belonging to that profile is stored. 🔶 So a device can have a profile partition without the profile itself: for example, a profile's saves can be on the hard drive while the profile is on a memory unit. ✅ (A real USB drive held a profile partition of saves with no profile package.) A partition may also be left behind after its profile has been deleted. 🔶 A profile can be deleted in many ways: by hand on a FAT32 USB drive, by official dashboards of different versions, by unofficial dashboards and by homebrew tools. Not all of them are likely to clean up. So tools should assume that profile partitions without a profile, and other leftovers, will be found.
 
 Typical content in a profile partition:
 
 - the profile itself (`00010000`) ✅
-- saves (`00000001`) ✅ A game can also put saves in the public partition, but this is unusual. 🔶
+- saves (`00000001`) ✅ A game can also put saves in the public partition, but this is unusual. 🔶 Apps commonly do (§4.9). ✅
 
 ### 2.2 Signing and licensing, in plain terms
 
@@ -152,7 +152,7 @@ Every package declares one of three kinds of signature, shown by the label at th
 |---|---|---|---|
 | A console | `CON` | Saves, profiles, cache files ✅. Probably disc installs 🔶 | Yes. Any console can check a `CON` signature. ✅ A game may still refuse a save made under a different profile. |
 | Microsoft, through Xbox Live | `LIVE` | Marketplace downloads: games, DLC, themes, avatar items ✅ | Yes, but using it needs a licence (see below). ✅ |
-| Microsoft, outside Xbox Live | `PIRS` | System updates and content on game discs ✅. Some title updates (§4.4) 🔶 | Generally yes. 🔶 |
+| Microsoft, outside Xbox Live | `PIRS` | System updates and content on game discs ✅. Some title updates (§4.5) 🔶 | Generally yes. 🔶 |
 
 **Licences.** Signing says whether the console trusts a package. A licence says who may use it. ✅
 
@@ -169,10 +169,11 @@ Every package declares one of three kinds of signature, shown by the label at th
 
 Every package has a signature in its header: the format always reserves room for one. ✅ PEC has no label, but it still starts with a console certificate (§3.3). ✅ What fills that room isn't always genuine:
 
-- **Tool-made packages.** Iso2God and iso2god-rs start from a blank `LIVE` header, with an empty signature. ✅ Aurora's Disc to GOD also writes a `LIVE` package, not a console-signed disc install. 🔶 None of these has a genuine Microsoft signature, since only Microsoft holds that key. ✅
+- **Tool-made packages.** Iso2God and iso2god-rs start from a blank `LIVE` header, with an empty signature. ✅ Aurora's Disc to GOD also writes a `LIVE` package with an all-zero signature, not a console-signed disc install. ✅ (Checked on 8 real Disc to GOD rips.) None of these has a genuine Microsoft signature, since only Microsoft holds that key. ✅
 - **Edited packages.** Once a save or profile has been edited on a PC, its hashes have to be recalculated and the package re-signed. ✅
   - **`CON` packages:** tools such as Velocity and Horizon re-sign them with the private key from a real console's keyvault (`KV.bin`). Any genuine retail keyvault works, so even a stock console accepts the result. ✅ A re-signed `CON` package is genuinely signed, just not by the console that made it.
   - **`LIVE` and `PIRS` packages:** no tool can produce a genuine signature. ✅
+- **Unlocked packages** (§2.2) no longer match their Microsoft signature. Some unlocking tools overwrite it with a marker instead (§4.8). ✅ Unlocking tools may keep the original header in a `BACKUP/` directory (§4.8). ✅
 - **Homebrew packages** may carry blank signatures, or a `CON` signature made with someone else's keyvault. 🔶
 
 **Whether this matters depends on the console.** A stock console treats a package that isn't genuinely signed as corrupt. ✅ A soft-modded console runs a patched kernel that skips the `LIVE` and `PIRS` signature checks, which is why tool-made packages, such as a Disc to GOD rip, work on it. ✅
@@ -212,6 +213,8 @@ Saves, DLC, title updates, profiles, Arcade games, themes and most other content
 
 The two parts are one package. Copying, moving or deleting one without the other breaks the game.
 
+A finished package's `.data` directory holds only `Data####` files. ✅ The one exception found is a download still in progress, whose `.data` directory also holds a header file (§4.4).
+
 Unlike STFS, SVOD has no file system of its own. It is a signed, hashed wrapper around a disc image, much like a signed `.iso` split into pieces. The game's files are inside that disc image, in the disc's own file system, XDVDFS (§5). ✅ The disc image's start is marked with the disc format's magic, `MICROSOFT*XBOX*MEDIA`.
 
 > **Checked against real files.** This repo's test fixtures include two real GOD headers, from *Dead Island Riptide* and *South Park: The Stick of Truth*. Both are exactly 45,056 bytes, with volume type 1 (SVOD). Their data file counts are 22 and 23, which match their combined data sizes (3.43 and 3.63 GiB) split into ~163 MB files. Two real DLC packages in the fixtures have volume type 0 (STFS) and a data file count of 0. ✅
@@ -222,7 +225,7 @@ SVOD is used for Games on Demand, and for original Xbox games, whether bought fr
 
 ### 3.3 PEC: profile embedded content
 
-**PEC** (Profile Embedded Content) is an STFS package with most of its header removed. It isn't stored in `Content/` on its own. It is a file named `PEC` inside a profile package (§4.5).
+**PEC** (Profile Embedded Content) is an STFS package with most of its header removed. It isn't stored in `Content/` on its own. It is a file named `PEC` inside a profile package (§4.6).
 
 - **What it holds:** the GPD files for a player's avatar awards (§3.4), and some other GPD files moved there from the profile. Free60 describes PEC as "an additional layer of security on profiles".
 - **How it differs from STFS:** it has no `CON`/`LIVE`/`PIRS` magic, no display information and no thumbnails. Its short header has the console's certificate, the profile's ID and the ID of the console it belongs to. The details are in §6.
@@ -239,7 +242,7 @@ These are not package formats. They are the kinds of file a package can hold.
 | **Images** (PNG) | Thumbnails, gamer pictures, avatar renders | In package headers and inside packages. ✅ |
 | **SPA** | A game's built-in definitions of its achievements, stats and settings. It is an XDBF file, and is used to build the game's GPD when the game is played. | Not a separate file: a resource inside the game's `.xex`, named after its Title ID. ✅ |
 | **XEXP** (XEX patch) | A patch that updates a game's `.xex` | Inside title update packages. ✅ |
-| **FMIM** | Music ripped from a CD: a WMA file with a small header | System music storage, outside `Content/` (§4.9). ✅ |
+| **FMIM** | Music ripped from a CD: a WMA file with a small header | System music storage, outside `Content/` (§4.10). ✅ |
 | **Game-defined files** | Whatever a game chooses to write | Inside saves and DLC; the format is the game's own. ✅ |
 
 One more format looks like a package format but isn't:
@@ -285,11 +288,11 @@ This repo's code (`ContentTypeName` in `xcontent`) still uses Velocity's names, 
 | XboxDownload | | Downloaded content for an original Xbox game | `0x00070000` | `00070000` |
 | GameDemo | | A playable demo | `0x00080000` | `00080000` |
 | Video | | A video. Missing from Velocity and this repo. | `0x00090000` | `00090000` |
-| GameTitle | GamerTitle (Velocity, this repo) | Game title content | `0x000A0000` | `000A0000` |
+| GameTitle | GamerTitle (Velocity, this repo) | Game title content. One real example: Windows Media Center's `MCXFile` (§4.7). | `0x000A0000` | `000A0000` |
 | Installer | | A title update (game patch) or other install package | `0x000B0000` | `000B0000` |
 | GameTrailer | | A game trailer video | `0x000C0000` | `000C0000` |
 | ArcadeTitle | ArcadeGame (Velocity, this repo) | An Xbox Live Arcade (XBLA) game | `0x000D0000` | `000D0000` |
-| XNA | | An XNA game | `0x000E0000` | `000E0000` |
+| XNA | | Saves and data for XNA (Indie) games (§4.3) | `0x000E0000` | `000E0000` |
 | LicenseStore | | Licence data | `0x000F0000` | `000F0000` |
 | Movie | | A film | `0x00100000` | `00100000` |
 | TV | Video (Velocity, this repo) | A TV episode | `0x00200000` | `00200000` |
@@ -313,10 +316,10 @@ Many content types hold something that could be called a game. They differ in wh
 | XboxTitle (`00005000`) | An original Xbox game, run through the backward-compatibility emulator | Xbox Live ("Xbox Originals"), or converted with tools such as Iso2God | SVOD | Occasional 🔶 |
 | GameDemo (`00080000`) | A free, limited version of a game | Xbox Live | STFS | Occasional 🔶 |
 | CommunityGame (`02000000`) | An Xbox Live Indie Game: a small game made by an independent developer with XNA | Xbox Live | STFS 🔶 | Occasional 🔶 |
-| XNA (`000E0000`) | An XNA game, probably from the earlier XNA Creators Club ❓ | ❓ | STFS 🔶 | Rare ❓ |
+| XNA (`000E0000`) | Saves and data for Indie Games. Under the XNA Indie Player's Title ID (`584E07D2`), with lowercase GUID names. ✅ The earlier XNA Creators Club may have used it too. ❓ | Made by the console (`CON`) ✅ | STFS ✅ | Occasional 🔶 |
 | XNACommunity (`00003000`) | ❓ Only xenia lists it. | ❓ | ❓ | Rare ❓ |
 | Xbox360Title (`00001000`) | ❓ An Xbox 360 game or app package. What uses this type in practice is unclear. | ❓ | ❓ | ❓ |
-| GameTitle (`000A0000`) | ❓ Unclear. | ❓ | ❓ | ❓ |
+| GameTitle (`000A0000`) | ❓ Unclear. The one real example is Windows Media Center's `MCXFile`, under `FFFE07D1`. | Made by the console (`CON`) | STFS | Rare 🔶 |
 | SocialTitle (`00006000`) | ❓ A social app or title. Only xenia lists it. | ❓ | ❓ | ❓ |
 
 Notes on games:
@@ -324,13 +327,13 @@ Notes on games:
 - **Games on Demand are stored in the public partition**, at `Content/0000000000000000/<TitleID>/00007000/`. ✅
 - **GOD made from a disc** (Aurora's Disc to GOD, Iso2God and similar) has a `LIVE` header that isn't really signed, so it runs only on a modded console. Tools put it in the right place only if the user lets them create the directories. Each disc of a multi-disc game is its own package in the same directory. ✅
 - **Homebrew can appear as a GameDemo.** XeXMenu ships as a `CON` package at `Content/0000000000000000/C0DE9999/00080000/C0DE99990F586558`, so it shows up in the stock dashboard's demos. 🔶
-- **CommunityGame and XNA:** ❓ it isn't clear which of the two Xbox Live Indie Games use in practice.
+- **CommunityGame and XNA:** ❓ it isn't clear whether Xbox Live Indie Games use CommunityGame in practice. On a real drive, a bought Indie Game was a `00000002` package under `584E07D2`, and its saves were XNA (`000E0000`) packages. ✅
 - **Retail discs** aren't packages (§1, out of scope). The console can't run a disc game from storage unless it has been installed or converted. ✅
 - **Extracted disc rips** aren't packages either. They are made by Aurora's Disc Ripper, its File Manager copy, FSD's DVD Extract and XeXMenu's CopyDVD. Each is a plain directory of the disc's files, with `default.xex` at the top (§1, "Aside: games and apps as raw files"). They sit wherever the user chose, usually outside `Content/` (for example `Hdd1:\Games\<name>`). They run only on a modded console. Tools that read packages don't see them. ✅
 
 These content types sound like games but aren't:
 
-- **Installer** (`000B0000`): a title update for a game, not the game itself.
+- **Installer** (`000B0000`): a title update for a game, not the game itself (§4.5).
 - **GameTrailer** (`000C0000`) and **GameVideo** (`00400000`): videos about a game.
 - **SavedGame** (`00000001`) and **XboxSavedGame** (`00060000`): save data.
 - **MarketplaceContent** (`00000002`): DLC for a game.
@@ -340,7 +343,6 @@ These content types sound like games but aren't:
 | Kind of content | Format | Content type |
 |---|---|---|
 | **DLC** (map packs, add-ons) | STFS, `LIVE` | `00000002` ✅ |
-| **Title updates** (game patches) | STFS, signed `LIVE` or `PIRS` 🔶 | `000B0000` ✅ |
 | **Avatar items** (clothing, props) | STFS, `LIVE` | `00009000` ✅ |
 | **Gamer pictures** | STFS | `00020000` ✅ |
 | **Dashboard themes** | STFS | `00030000` ✅ |
@@ -349,14 +351,40 @@ These content types sound like games but aren't:
 
 Films and TV bought or rented from Xbox Live are probably Movie (`00100000`) and TV (`00200000`) packages in the public partition, like other Marketplace downloads. 🔶
 
+Title updates are covered in §4.5.
+
+**Downloads in progress.** While the dashboard downloads content, it keeps a placeholder package in the content's own directory. ✅ It is easy to mistake for the content itself:
+
+- It is a `CON` package with the display name "Title Content Progress cache", and metadata version 1 (§6.1).
+- It is named after the finished package (§5): 42 digits in `00000002` or `00080000`, 34 in `00007000`.
+- Its header doesn't describe the content. It says content type `000B0000`, Title ID `FFFE07D1` (the dashboard), and the downloading account's XUID as the profile ID.
+- For STFS content, it is as large as the content downloaded so far.
+- For a GOD download, it is small (73,728 bytes) and has its own `.data/` directory. That directory holds the delivered GOD header, a `PIRS` header with no licences, and the `Data####` files downloaded so far. The placeholder's data file count includes that header.
+
+What happens to it when the download finishes isn't known. 🔶 Tools should skip it (§7.2).
+
+### 4.5 Title updates
+
+A **title update** (TU) is a patch for a game, released after the game. Its content type is Installer (`000B0000`). ✅
+
+- **Format:** STFS, signed `LIVE`. ✅ Some may be `PIRS`. 🔶 All 44 on the real drives checked (§9) were `LIVE`, with metadata version 1 and one unrestricted licence. ✅
+- **Contents:** a patch to the game's executable, `default.xexp` (§3.4). ✅
+- **Title ID:** the game's own (§1). ✅
+
 **Where title updates are stored.** Title updates are kept in one of two places, depending on how they are named: 🔶
 
 - **Newer title updates**, named in lowercase like `tu00000002_00000000`, are packages in the public partition, at `Content/0000000000000000/<TitleID>/000B0000/`.
 - **Older title updates**, named in uppercase like `TU_16L61V6_0000008000000.00000000000O2`, sit in the drive's cache area (`Hdd1:\Cache`). Clearing the system cache deletes them. ✅ (Microsoft: "Clearing the cache does remove previously downloaded game updates.")
 
+**Names.** Every title update on the real drives was named `tu<8 hex digits>_<8 hex digits>`, in lowercase. ✅ The first number isn't the update's number: *Fallout: New Vegas*'s "Title Update #5" is `tu00000001_00000000`. ❓ What the numbers mean is unknown.
+
+**Title updates aren't cumulative layers.** A title update holds a patch, `default.xexp`, made against the base game's `default.xex`, never against an earlier update. ✅ So each update stands alone: a later one doesn't need the earlier ones, and includes their changes. 🔶 Only one is active at a time. ✅ An update applies only to the build it was made for. xenia checks a hash in the patch against the game's `.xex` and skips an update that doesn't match. ✅ A game with several builds (regions, disc and GOD versions, or discs of a multi-disc game) may have a separate update line for each. 🔶 So a store of title updates may hold several updates for one title, not all of which will apply to a given copy.
+
+**Matching a build.** A title update's media ID (`0x354`, §6.4) is probably that of the build it patches. 🔶 On the real drives, it matched the game's media ID for 4 of 5 titles. The exception was *Skyrim*: the game was an Xbox Live GOD, and its title update had a different media ID, probably the disc build's. So a matching media ID is a cheap hint that an update applies, but not proof. 🔶
+
 On a modded console, Aurora downloads title updates from the community site xboxunity and lets the user choose which one is active.
 
-### 4.5 Player profiles, including avatars
+### 4.6 Player profiles, including avatars
 
 A **profile** is a player's identity on the console. Each one is a single STFS package, signed by the console it was created on. ✅ It lives at:
 
@@ -377,9 +405,9 @@ Inside the profile package are several files:
 
 - **Its look** is a setting in the dashboard GPD. ✅ There is no separate avatar file.
 - **Avatar items** the player owns, such as clothing and props, are separate packages (`00009000`, §4.4). ✅
-- **Avatar awards** a game gives are in two parts. The record of earning one is kept in a GPD inside the PEC. ✅ The item itself is an ordinary avatar item package. When an award unlocks, the game reports only which award it is. The system then fetches the item, most likely from Xbox Live, and stores it. 🔶 It sits in the public partition, under the awarding game's Title ID, at `Content/0000000000000000/<TitleID>/00009000/`, the same place as avatar items bought on the Marketplace. 🔶 ❓ Which kind of signature these packages carry is unknown. Community tools build them as `PIRS`.
+- **Avatar awards** a game gives are in two parts. The record of earning one is kept in a GPD inside the PEC. ✅ The item itself is an ordinary avatar item package. When an award unlocks, the game reports only which award it is. The system then fetches the item, most likely from Xbox Live, and stores it. 🔶 It sits in the public partition, under the awarding game's Title ID, at `Content/0000000000000000/<TitleID>/00009000/`, the same place as avatar items bought on the Marketplace. ✅ On a real drive, award items were `PIRS` and bought items `LIVE`. 🔶 (Which items were awards was judged by their names.) Community tools also build award items as `PIRS`. Avatar item packages are named with their asset ID (§5).
 
-### 4.6 System content
+### 4.7 System content
 
 The console keeps some of its own content as packages, in the same layout as everyone else's. This section covers that system content.
 
@@ -399,10 +427,13 @@ The console keeps some of its own content as packages, in the same layout as eve
 
 Some system content does sit in the user's `Content/` directory, under system Title IDs:
 
-- **Profiles** (`00010000`) live under the dashboard's Title ID, `FFFE07D1`, in each profile partition (§4.5). ✅
-- **Gamer pictures and themes** (`00020000` and `00030000`) live under `FFFE07D1` in the public partition (§2.1). 🔶
-- **The optional media update**, which adds MP4, DivX and Xvid playback, is a `00000002` package at `Content/0000000000000000/FFFE07DF/00000002/`. 🔶
-- **A system content cache** sits at `Content/0000000000000000/FFFE07DF/00040000/ContentCache.pkg`. 🔶
+- **Profiles** (`00010000`) live under the dashboard's Title ID, `FFFE07D1`, in each profile partition (§4.6). ✅
+- **Gamer pictures and themes** (`00020000` and `00030000`) live under `FFFE07D1` in the public partition (§2.1). ✅ The gamer pictures come in two kinds: `PIRS` packs named `FFFE07D1<4 digits>.GamerPicture`, and console-made `CON` caches named with a game's Title ID in lowercase, such as `4d5307d6`.
+- **The optional media update**, which adds MP4, DivX and Xvid playback, is a `00000002` package at `Content/0000000000000000/FFFE07DF/00000002/`. ✅
+- **System data packages** under `FFFE07DF`, all console-made `CON`: ✅
+  - `00040000/ContentCache.pkg` (the content cache), `InGameAccessTimes` and `Bookmarks.dat` (video bookmarks)
+  - `000F0000/JanusDatastore.dat`, a "Rights Database" for Zune
+- **Other system packages:** `FFFE07D1/000A0000/MCXFile` (Windows Media Center) and `584D07D1/00040000/asset_refresh_cookie` (the avatar editor). ✅
 
 #### Known system Title IDs
 
@@ -414,7 +445,7 @@ Some system content does sit in the user's `Content/` directory, under system Ti
 | `FFFE07D2` | The original Xbox backward-compatibility emulator | ✅ |
 | `FFFE07DE` | Xbox Live sign-up. Its GPD appears in profiles created through it. | ✅ |
 | `584E07D1` | XNA Creators Club | 🔶 |
-| `584E07D2` | Xbox Live Indie (community) games | 🔶 |
+| `584E07D2` | The XNA Indie Player, for Xbox Live Indie (community) games | ✅ |
 
 Homebrew uses made-up Title IDs that look like these: 🔶
 
@@ -422,17 +453,27 @@ Homebrew uses made-up Title IDs that look like these: 🔶
 - `C0DE9999` is the directory XeXMenu's package installs to (§4.3), and other homebrew installs there too.
 - `FFFF011D` is DashLaunch, and `F5D10000` is FreeStyle Dash.
 
-### 4.7 Other stored content
+### 4.8 Other stored content
 
 Other content found as packages in `Content/`:
 
 | Kind of content | What it is | Content type |
 |---|---|---|
-| **Cache packages** | Cached data, such as the system content cache under `FFFE07DF` (§4.6) | `00040000` 🔶 |
+| **Cache packages** | Cached data, such as the system content cache under `FFFE07DF` (§4.7) | `00040000` ✅ |
 | **Original Xbox saves and downloads** | Saves and downloaded content for original Xbox games | `00060000` and `00070000` ❓ |
 | **IPTV pause buffer** | Live TV pause storage (IPTV services) | `00002000` ❓ |
 
-### 4.8 Game and app save data
+> **Aside: unlocked packages and `BACKUP/` directories.** On a real drive, unlocked Games on Demand came with the original header kept beside them: ✅
+>
+> - **Where:** a `BACKUP/` directory inside the content-type directory, holding a header with the same name, such as `…/00007000/BACKUP/<header name>`. One title used a `7000_BACKUP/` directory next to `00007000/` instead.
+> - **What changed:** the licences (§6.3) and the signature. ✅ The original had the buyer's XUID licence and a console licence. The unlocked copy has two unrestricted licences (`0xFFFFFFFFFFFFFFFF`). Arcade games on the same drive had the same pair.
+> - **The signature** was overwritten with the ASCII text `ByromWasHereUnlockingYourGODGame`, repeated to fill all `0x100` bytes. It was the same in all 10 GODs. The unlocked Arcade games instead kept signatures that look genuine but no longer match. 🔶
+> - **What didn't:** the content ID, which confirms that it doesn't cover the licences (§6.3).
+> - **Orphans:** one backup had no main header beside it.
+>
+> The marker suggests a GOD unlocker by "Byrom". 🔶 Tools should treat these directories as invalid (§7.3).
+
+### 4.9 Game and app save data
 
 **Format.** A save is an STFS package with content type `00000001`, signed `CON`. The console creates and signs it when a game asks for one. ✅ It is usually stored in the profile partition of the player who made it (§2.1). ✅
 
@@ -447,16 +488,18 @@ Other content found as packages in `Content/`:
 
 Most games keep the default, so a save usually can't simply be given to another player. 🔶 A save can still be copied to another console along with its profile (§2.2). ✅
 
+**Apps** keep their data as saves in the public partition, for example PlayReady licence stores, Zune and Sky Player. ✅ Some of them have Title ID 0 in the header.
+
 > **Aside: other data games create, and other uses of saves.**
 >
-> - **Player-made content:** content such as *Halo 3*'s Forge maps and *Minecraft*'s worlds are stored in their own packages, probably as ordinary saves (`00000001`). 🔶
+> - **Player-made content:** *Halo 3*, *Halo: Reach* and *Halo 4* Forge maps and map variants are ordinary saves (`00000001`) in the profile partition. ✅ *Minecraft* worlds are probably the same. 🔶
 > - **Unlocks across games:** sequels such as *Mass Effect 2* import an earlier game's saves. They do this by listing its Title ID as an "alternate title ID" in their `.xex`. ✅
 > - **Modding:** tools such as Horizon and Velocity can edit a save, then rehash and re-sign it (§2.3). ✅
 > - **Exploits:** since 2025, crafted *Tony Hawk's American Wasteland* and *Rock Band Blitz* saves were used to launch the BadUpdate exploit. Before that, Xbox 360 save exploits were rare. ✅
 > - **Built or downloaded data:** some games keep data they build in their own packages, such as *Rock Band 3*'s song cache. 🔶
-> - **Game cache:** games also have their own cache storage, in the drive's cache areas rather than in packages (§4.9). ✅
+> - **Game cache:** games also have their own cache storage, in the drive's cache areas rather than in packages (§4.10). ✅
 
-### 4.9 Content outside `Content/`
+### 4.10 Content outside `Content/`
 
 > **This whole section is an aside.** The content here isn't stored as packages in `Content/`, so this specification doesn't cover it. It is collected here to help readers identify content that is not part of the `Content/` tree.
 >
@@ -491,7 +534,7 @@ Most games keep the default, so a save usually can't simply be given to another 
 >
 > 1. a **security sector**, used to check that the drive is genuine
 > 2. the **system cache** and the **game cache** (SFCX)
-> 3. two small system areas, **System Auxiliary** and **System Extended** (FATX), which hold system updates and dashboard extensions (§4.6)
+> 3. two small system areas, **System Auxiliary** and **System Extended** (FATX), which hold system updates and dashboard extensions (§4.7)
 > 4. an area for **original Xbox games** (FATX)
 > 5. the main **data area** (FATX), which holds `Content/` and fills the rest of the drive
 >
@@ -499,13 +542,20 @@ Most games keep the default, so a save usually can't simply be given to another 
 
 **Names on FATX.** File and directory names can be at most 42 characters, using letters, digits, spaces and ``! # $ % & ' ( ) - . @ [ ] ^ _ ` { } ~``. ✅ Names keep the case they were written with. ✅ The console most likely ignores case when looking names up, but no source confirms it. 🔶 PC tools for FATX, such as Velocity, match names exactly, including case. ✅ FAT32 USB drives on modded consoles ignore case, as FAT32 always does. 🔶
 
-The limit explains how real packages are named: ✅
+The limit explains how real packages are named. These patterns were checked against real drives (§9): ✅
 
-- **Xbox Live STFS packages** (DLC, Arcade games and similar) are usually named with exactly 42 uppercase hex digits: 40 random\*, then the first byte of the Title ID. An example is `E42409217241BEFFDAE1EFBA10F7DA460283CFB358` under Title ID `5841098F`.
-- **Xbox Live Games on Demand** headers are usually named with 34 hex digits: 32 random\*, then the first byte of the Title ID. With `.data` added, the directory name is 39 characters, which fits. Guides that say GOD names are 40 characters are wrong: a 45-character `.data` directory couldn't exist on FATX.
-- **Tool-made packages** use shorter names: 8 hex digits for iso2god-rs, 20 for Iso2God.
+- **Xbox Live STFS packages** (DLC, Arcade games, gamer pictures, trailers and similar) are named with 42 uppercase hex digits: the 20-byte **content ID** (`0x32C`, §6.3) as 40 digits, then the first byte of the Title ID. An example is `E42409217241BEFFDAE1EFBA10F7DA460283CFB358` under Title ID `5841098F`.
+- **Xbox Live Games on Demand** headers are named with 34 hex digits: the **first 32 digits** of the content ID (its first 16 bytes), then the first byte of the Title ID. With `.data` added, the directory name is 39 characters, which fits. Guides that say GOD names are 40 characters are wrong: a 45-character `.data` directory couldn't exist on FATX.
+- **Avatar items** are named with 32 hex digits: the 16-byte avatar asset ID at `0x3E1` (§6.4).
+- **Aurora's Disc to GOD rips and disc installs** are named with 32 hex digits. The last 8 are the media ID (`0x354`, §6.4). Where the first 24 come from is unknown. ❓
+- **Other tool-made packages** use shorter names: 8 hex digits for iso2god-rs, 20 for Iso2God.
 
-\* The digits look random, but probably aren't. Every package header has a 20-byte **content ID**, a SHA-1 hash of the header, and 20 bytes written as hex is exactly 40 digits. So the 40 digits are very likely the content ID, and the 32 in GOD names may be the content ID cut short to make room for `.data`. 🔶 No source documents this, and no one has yet compared a real package's name with its content ID. ❓ Why the last two characters match the first byte of the Title ID is also unknown. ❓
+There are exceptions: ✅
+
+- **`PIRS` themes** have 42 digits ending in the Title ID byte, but the first 40 aren't the content ID. Some have short names instead, such as `fc3theme` or `halo2theme`.
+- ***Dragon Age: Origins* DLC** has 41 digits: the content ID plus only the first digit of the Title ID byte.
+
+Why the Title ID's first byte is added is unknown. ❓
 
 **Package names are a convention, not a requirement.** Whatever creates a package chooses its file name. ✅ Xbox Live's download system uses these hex names, games choose their own names for saves (for example, one is called `creep`), and tools such as iso2god-rs pick their own. The console finds a package by its device, content type and file name, and nothing checks what the name contains. ✅ So tools should read a package's identity from its header, not its name.
 
@@ -533,14 +583,14 @@ Offsets and sizes are in bytes, and offsets are from the start of the file. Numb
 | `0x22C` | `0x118` (280) | Licences, content ID and header size (§6.3) |
 | `0x344` | `0x93D6` (37,846) | Metadata, ending at `0x971A` (§6.4, §6.5) |
 
-- **Header size:** the size of the header that's actually used is stored at `0x340`. It is `0x971A` for `CON` packages, and `0xAD0E` for `LIVE` and `PIRS` packages, which add extra installer metadata. 🔶
-- **Padding:** the header is padded to the next 4 KiB boundary: `0xA000` for `CON`, `0xB000` for `LIVE` and `PIRS`. 🔶
+- **Header size:** the size of the header that's actually used is stored at `0x340`. It is either `0x971A`, or `0xAD0E` for packages that add extra installer metadata. 🔶 It is usually `0x971A` for `CON` packages and `0xAD0E` for `LIVE` and `PIRS`, but not always: disc installs and downloads in progress (§4.4) are `CON` with `0xAD0E`. ✅ So read the size at `0x340`. Don't infer it from the magic.
+- **Padding:** the header is padded to the next 4 KiB boundary: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header. 🔶
 - **How much to read:** a tool doesn't need the whole header to identify a package.
   - The **first `0x2000` bytes** (8 KiB) hold every field up to the start of the thumbnails at `0x171A`. That covers the magic, signature, licences, metadata and the nine main language strings.
   - To get the **thumbnails**, read up to `0x971A`.
   - The **three extra languages** of metadata version 2 are stored in the thumbnails' space (§6.5), so they need a read up to `0x971A` too.
 
-**Metadata versions.** The metadata layout has two versions, stored at `0x348` as 1 or 2. ✅ Every offset is the same in both. Version 2 only puts some unused space to work:
+**Metadata versions.** The metadata layout has two versions, 1 and 2, identified by the value at `0x348`. ✅ **Version 1 is stored as 0**, and version 2 as 2. ✅ No package on the real drives checked (§9) stores 1. Only 0 and 2 have been found. xenia and Velocity only test whether the value is 2, so a reader should treat any other value as version 1. ✅ Every offset is the same in both versions. Version 2 only puts some unused space to work:
 
 | | Version 1 | Version 2 |
 |---|---|---|
@@ -581,7 +631,7 @@ A package's **licences** say who may use it: anyone, a particular Xbox Live acco
 | Offset | Size | Field |
 |---|---|---|
 | `0x22C` | `0x100` (256) | 16 licence entries of `0x10` bytes each (below) |
-| `0x32C` | `0x14` (20) | Content ID: a SHA-1 hash of the header from `0x344` up to the header size at `0x340` 🔶. Velocity calls it the header hash. |
+| `0x32C` | `0x14` (20) | Content ID: a SHA-1 hash of the header from `0x344` up to the header size at `0x340` 🔶. It doesn't cover the licences: unlocking a package leaves it unchanged (§4.8). ✅ Velocity calls it the header hash. |
 | `0x340` | `0x4` (4) | Header size (§6.1) |
 
 Each licence entry is: ✅
@@ -601,7 +651,7 @@ Licensee types (Velocity): `0xFFFF` unrestricted (so `0xFFFFFFFFFFFFFFFF` means 
 | Offset | Size | Field |
 |---|---|---|
 | `0x344` | `0x4` (4) | Content type (§4.2) |
-| `0x348` | `0x4` (4) | Metadata version: 1 or 2 (§6.1) |
+| `0x348` | `0x4` (4) | Metadata version: 0 for version 1, 2 for version 2 (§6.1) |
 | `0x34C` | `0x8` (8) | Content size |
 | `0x354` | `0x4` (4) | Media ID |
 | `0x358` | `0x4` (4) | Version |
@@ -621,7 +671,7 @@ Licensee types (Velocity): `0xFFFF` unrestricted (so `0xFFFFFFFFFFFFFFFF` means 
 | `0x3AD` | `0x8` (8) | Online creator |
 | `0x3B5` | `0x4` (4) | Category |
 | `0x3B9` | `0x20` (32) | Reserved |
-| `0x3D9` | `0x24` (36) | Metadata version 2 only (§6.1): either media data (series ID, season ID, season and episode numbers) or avatar asset data (sub-category, colourisable flag, asset ID, skeleton version) |
+| `0x3D9` | `0x24` (36) | Metadata version 2 only (§6.1): either media data (series ID, season ID, season and episode numbers) or avatar asset data (sub-category, colourisable flag, the 16-byte asset ID at `0x3E1`, skeleton version) |
 | `0x3FD` | `0x14` (20) | Device ID of the storage device |
 | `0x411` | `0x900` (2,304) | Display names (§6.5) |
 | `0xD11` | `0x900` (2,304) | Descriptions (§6.5) |
@@ -741,7 +791,7 @@ Note the mixed byte order: the 2- and 3-byte block fields are little-endian, and
 **Data files.** ✅
 
 - **Location:** the data files are in `<header name>.data/`, next to the header. A missing directory means the package is incomplete (§7.3).
-- **Names:** `Data0000`, `Data0001`… The number is 4-digit decimal, and there are no gaps.
+- **Names:** `Data0000`, `Data0001`… The number is 4-digit decimal, and there are no gaps. Nothing else is in the directory, except during a download (§4.4).
 - **Count:** the number of files must equal the data file count at `0x39D`. Readers sort them by name.
 - **Size:** each file is exactly `0xA290000` bytes (170,459,136, about 162.6 MiB), except the last, which can be shorter. Each holds 0x14388 data blocks of `0x800` bytes, plus their hash tables.
 
@@ -817,19 +867,26 @@ directory name = 16 hex chars?   /^[0-9a-fA-F]{16}$/
 - **Inside a partition**, Title ID directories are named with 8 hex digits, such as `4D5307E6` (§1).
 - **Inside a Title ID directory**, content-type directories are named with 8 hex digits, such as `00007000` or `000D0000` (§1). The old docs wrongly said lowercase. ✅
 - **Inside a content-type directory**, every file is a package file. The only directory that belongs there is an SVOD package's `<header name>.data` (§7.3).
-- **Anything else** isn't part of the content tree. A tool should skip it and may report it, but shouldn't treat it as a package.
+- **Anything else** isn't part of the content tree. A tool should skip it and may report it, but shouldn't treat it as a package. The exception is unexpected directories in and beside content-type directories, such as `BACKUP/`, `7000_BACKUP/` and empty nested `00080000/00080000`, which are found on real drives. ✅ Treat these as invalid packages (§7.3).
+- **Downloads in progress** (§4.4) sit in content-type directories like real packages. Skip them, along with their `.data` directory (§7.2).
 - **Case:** match names without regard to case, but write them in their usual case:
   - uppercase hex for Title ID and content-type directories
   - an SVOD package's data directory spelled exactly `<header name>.data`
 
   The console probably accepts other cases, but PC tools for FATX don't (§5). 🔶
-- **System and homebrew titles** appear as ordinary Title ID directories, such as `FFFE07D1`, `FFFE07DF` and `C0DE9999` (§4.6). A tool that lists titles should recognise them, rather than show them as games.
+- **System and homebrew titles** appear as ordinary Title ID directories, such as `FFFE07D1`, `FFFE07DF` and `C0DE9999` (§4.7). A tool that lists titles should recognise them, rather than show them as games.
 
 ### 7.2 Identifying a package
 
 - **Read the header, not the name.** A package's file name is opaque (§5). Identify a package from its header, following the steps in §6.9.
+- **Ignore file extensions.** Package names can end in `.xml`, `.dat` or `.pkg`, such as the saves `C5Data.xml` and `LicenseStore.dat` (§4.9). These say nothing about the format. Only the magic does. ✅
 - **Check the magic first.** A file in a content-type directory whose magic isn't `CON `, `LIVE` or `PIRS` isn't a package (§6.2).
 - **Ownership:** trust the partition directory's name to tell which profile a package belongs to. The profile ID in the header (`0x371`) normally matches it, but nothing enforces that, so use it only as a cross-check (§2.1). ✅
+- **The directory decides the Title ID and content type too.** Headers often disagree with their directory. ✅ On real drives, these all had Title ID 0 in the header:
+  - system packages under `FFFE07DF` and `584D07D1`
+  - the dashboard's gamer picture caches
+  - some app saves (§4.9)
+- **Skip downloads in progress** (§4.4). Recognise one as a `CON` package whose header says Title ID `FFFE07D1` and content type `000B0000`, but which sits somewhere other than `FFFE07D1/000B0000/`. 🔶 Its display name, "Title Content Progress cache", is a second sign, but it may be localised. ❓
 - **Signatures:** the magic says only which kind of signature a package *claims*. A `LIVE` label doesn't prove a package came from Xbox Live (§2.3).
 
 ### 7.3 Treating a package as one unit
@@ -845,13 +902,17 @@ A package is the unit that is copied, moved, compared or removed.
 2. The directory holds exactly as many files as the data file count at `0x39D`.
 3. They are named `Data0000` up to `Data` + (count − 1), with no gaps.
 4. Every file except the last is exactly `0xA290000` bytes, and the last is no larger.
+5. The sizes of the data files add up to the combined size at `0x3A1`. ✅ (All 24 complete packages on a real drive passed every check.)
 
-The sizes of the data files probably add up to the combined size at `0x3A1`. 🔶 That would make a fifth check.
-
-**Things that are always wrong:**
+**Invalid packages.** These layouts are always wrong. A tool should treat each as an invalid package and follow whatever process it has for invalid packages:
 
 - an STFS package (volume type 0) with a `.data` directory next to it
-- a `.data` directory with no header file of the same name
+- an SVOD header with no `.data` directory ✅ found
+- a `.data` directory with no header file of the same name ✅ found
+- an empty `.data` directory ✅ found
+- a `.data` directory holding anything other than `Data####` files, outside a download in progress (§4.4)
+- any other directory inside a content-type directory, such as `BACKUP/` (§4.8) or an empty nested `00080000/` ✅ found
+- a non-hex directory beside the content-type directories, such as `7000_BACKUP/` ✅ found
 
 ### 7.4 Copying and moving
 
@@ -862,7 +923,7 @@ The sizes of the data files probably add up to the combined size at `0x3A1`. �
   - every name must be at most 42 characters, including `.data`
   - every file must be at most 4 GB
 - **Things a copy doesn't bring along.** A tool should say so when it matters:
-  - Older title updates, in `Hdd1:\Cache`, are outside `Content/` (§4.4). 🔶
+  - Older title updates, in `Hdd1:\Cache`, are outside `Content/` (§4.5). 🔶
   - Saves and other profile content are tied to their profile, which a game may require on the target device (§2.2).
   - Purchased content may need its licence on the target console. ❓ Whether a modded console checks it is unknown (§2.2).
 
@@ -904,6 +965,7 @@ These are cited by file name below, without repeating their links.
 | **emoose/xbox-reversing** | https://github.com/emoose/xbox-reversing | Format templates (`Xbox360Container.bt`) and `stfschk` |
 | **ConsoleMods** | https://consolemods.org/wiki/ | Modding wiki. It blocked direct reading, so its pages were mostly seen in snippets. |
 | **X1 research** | [x1-research-findings.md](session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
+| **Real drives** | [real-drive-findings.md](session_context/loadout/docs/real-drive-findings.md) | Header reads of all 591 packages on a USB drive of four `Content/` trees, and of a 181-package copy of one of them (§9). Not in the repo. |
 | **This repo's fixtures** | `packages/xcontent/src/parse-header/__tests__/fixtures/` | Real package headers: two GOD headers (`god-dead-island-riptide`, `god-south-park-tsot`) and two DLC packages (`dlc-halo-reach-anniversary`, `dlc-halo-wars`) |
 
 ### 8.3 §1: The big picture
@@ -1024,28 +1086,28 @@ These are cited by file name below, without repeating their links.
   - Velocity `StfsConstants.h`, and `creationwizard.cpp` (offered under CON and LIVE).
   - Free60 STFS lists "0x000F0000: License Store" without explanation.
 - **Games** (§4.3): the X1 research (§8.2), for Aurora's ripping methods and extracted rips. The XeXMenu package path comes from ConsoleMods (https://consolemods.org/wiki/Xbox_360:XeXmenu) and Se7enSins *(snippet)*.
-- **Title updates** (§4.4):
+- **Title updates** (§4.5):
   - ConsoleMods' Title Updates and Manually Installing Title Updates pages *(snippet)*: lowercase `tu…` files go in `Hdd1/Content/0000000000000000/TITLE_ID/000B0000`, and uppercase `TU_…` files in `Hdd1/Cache`.
   - Microsoft's clear-cache page (https://support.xbox.com/en-RS/help/xbox-360/console/clear-system-cache).
-  - xenia-canary `kernel_state.cc` loads title updates from Installer content.
+  - xenia-canary `kernel_state.cc` loads title updates from Installer content. It applies only the first one found, as a `.xexp` delta patch, and skips it if the hash in its delta patch descriptor (`xex2_info.h`) doesn't match the base `.xex` (`IsPatchSignatureProper`).
   - emoose `Xbox360Container.bt`: Installer subtypes `TITLE_UPDATE = 'TUPD'` and `PROGRESS_CACHE_TITLE_UPDATE = 'P$TU'`.
-- **Profile images and avatars** (§4.5):
+- **Profile images and avatars** (§4.6):
   - Velocity `profilecreatorwizard.cpp`: writes `tile_64.png` and `tile_32.png`, and the avatar image entry `0x8007` in `FFFE07D1.gpd`.
   - Velocity `XdbfDefininitions.h` (`AvatarImage`, `GamercardAvatarInfo1/2`) and `profileeditor.cpp` (builds award items as AvatarItem packages).
   - xenia-canary `user_profile.h` (tile file names), `user_settings.h` (`XPROFILE_GAMERCARD_AVATAR_INFO_1` = `0x63E80044`) and `xam_avatar.cc` (an installed award item is `kAvatarItem` with xuid 0).
-- **Avatar award items** (§4.5):
+- **Avatar award items** (§4.6):
   - xenia-canary `xgi_app.cc` (`XUserAwardAvatarAssets` passes only the user and award ID) and `xam_avatar.cc` (xuid 0, the awarding title, `kAvatarItem`).
   - Free60 GPD: title flag 0x10 means "Avatar Award Unlocked, needs to be downloaded".
   - Velocity `avatarassetdownloader.cpp`: downloads from `download.xboxlive.com/content/<titleID>/avataritems/`.
   - For where bought items are stored, `<TitleID>/00009000`:
     - NextGenUpdate (https://nextgenupdate.com/forums/xbox-360-cheats-customization/67307-how-get-avatar-items-free.html)
     - Digiex's AvatarFridayPatcher thread (https://digiex.net/threads/avatarfridaypatchergui.16256/)
-- **System content** (§4.6):
+- **System content** (§4.7):
   - RGLoader `RGLoader/sysext.cpp` mounts `\Device\Harddisk0\SystemExtPartition\` and builds `Content\0000000000000000\<TID>\<Type>\<name>` on it, creating `Content\...\FFFE07DF\00008000`.
   - c373z/xenia-guide-hud `system_update_import.cc`: "The hard drive's SystemExtPartition as an installed update leaves it".
   - Digiex on the optional media update (https://digiex.net/threads/xbox-360-optional-media-update-download.3143/): copied to `\Content\0000000000000000\FFFE07DF\00000002`.
   - patatetom/xtaf README: `Content/0000000000000000/FFFE07DF/00040000/ContentCache.pkg`.
-- **System Title IDs** (§4.6):
+- **System Title IDs** (§4.7):
   - xenia-canary `title_id_utils.h` (`kDashboardID`, `kAvatarEditorID`).
   - A private XAM header quoted in open-source projects: `XENON_SIGNUP_TITLE_ID 0xFFFE07DE` and `XCODEC_TYPE_AAC_TITLE_ID 0xFFFE07DF`.
   - grimdoomer/Halo-2-Unlock: `xbox.xex` has "Title Id: FFFE07D2".
@@ -1053,14 +1115,14 @@ These are cited by file name below, without repeating their links.
   - Velocity `profilecleanerwizard.cpp` (`FFFE07DE`).
   - Community lists: https://gist.github.com/AdrianCassar/c0d05a14608168259232b3ed8c77f28c, and the Sentry game list (Element18592/Sentry) for apps and homebrew.
   - J-Runner `DashLaunch.cs` for `C0DE9999`.
-- **Saves** (§4.8):
+- **Saves** (§4.9):
   - xenia-canary `kernel/xam/xcontent/xcontent.h`:
     - `file_name_raw[42]`
     - the create flags `kNoProfileTransfer`, `kNoDeviceTransfer`, `kAllowProfileTransfer` and `kMoveOnly`
     - the header bits `profile_transfer`, `device_transfer` and `move_only_transfer`
   - Velocity `XContentHeader.cpp` (`transferFlags`).
   - A forum report (https://forums.penny-arcade.com/discussion/21367/360-save-file-question): "Some games allow cross-profile copying… The vast majority don't."
-- **Other data games create, and other uses of saves** (§4.8):
+- **Other data games create, and other uses of saves** (§4.9):
   - *Halo 3* Forge maps: a Nexus Mods thread (https://www.nexusmods.com/halothemasterchiefcollection/mods/456?tab=posts).
   - *Rock Band 3*'s save and song cache: https://rhythmgamingworld.com/?p=395965.
   - *Mass Effect 2*'s import: GameBanshee (https://gamebanshee.com/k8ahr) and Shacknews (https://www.shacknews.com/article/61759/mass-effect-2-details-about).
@@ -1069,7 +1131,7 @@ These are cited by file name below, without repeating their links.
   - The modding workflow: WeMod forum guides (https://community.wemod.com/t/dead-or-alive-xtreme-2-save-editor/2132).
   - BadUpdate: https://github.com/grimdoomer/Xbox360BadUpdate ("the Rock Band save game exploit is specific to Rock Band Blitz") and Free60 (https://free60.org/Hacks/Bad_Update_Hack/).
   - The game cache API: xenia-canary `xam_table.inc` (`XamCacheStoreFile` and related).
-- **Ripped music** (§4.9): FATXplorer (https://fatxplorer.eaton-works.com/how-to-organize-and-extract-xbox-360-music-files/): "Content Partition:\\mindex" holds "a mindex.xmi file and a media folder".
+- **Ripped music** (§4.10): FATXplorer (https://fatxplorer.eaton-works.com/how-to-organize-and-extract-xbox-360-music-files/): "Content Partition:\\mindex" holds "a mindex.xmi file and a media folder".
 
 ### 8.7 §5: File systems
 
@@ -1108,17 +1170,30 @@ These are cited by file name below, without repeating their links.
 
 ## 9. To check against a real drive
 
-These questions can be settled by looking at a real `Content/` directory. They are to be checked when one is available.
+These questions can be settled by looking at a real `Content/` directory. They were checked on 2026-10-12 against a FAT32 USB drive holding four `Content/` trees of unknown provenance (591 packages), and a 181-package copy of one of those trees. The full results are in `session_context/loadout/docs/real-drive-findings.md`.
 
 1. **Public partition contents (§2.1).** Are Games on Demand, Arcade games, demos, disc installs, gamer pictures and themes all under `0000000000000000`?
+   - **Mostly yes.** ✅ GOD, disc installs, gamer pictures, themes, avatar items, DLC, title updates, trailers and app saves are all there. Arcade games are there too. ✅ Demo directories held only downloads in progress, so demos are unconfirmed.
 2. **Profile partitions (§2.1).** Does a profile partition exist only where that profile has content? Are there partitions whose profile isn't on the drive, or that were left behind by a deleted profile?
+   - **Yes, a partition can exist without its profile.** ✅ One profile partition held only saves, and its profile package wasn't on the drive. Its name, `E812CECF9EA2AF5F`, is why §2.1 doesn't require an `E0` prefix.
+   - **Left-behind partitions:** won't be checked. Tools should assume they occur (§2.1). 🔶
 3. **Saves in the public partition (§2.1).** Are there any saves (`00000001`) under `0000000000000000`?
+   - **Yes.** ✅ Seven `CON` saves, all app data: PlayReady licence stores, Zune, Xbox Music and Video, Sky Player and Demand 5. No game saves.
 4. **Package names and content IDs (§5).** For a few Xbox Live DLC and GOD packages, does the file name start with the 20-byte content ID at header offset `0x32C`, written in hex?
+   - **Yes.** ✅ All 59 42-character names are the content ID plus the Title ID's first byte. Exceptions: `PIRS` themes (the 40 digits aren't the content ID, and some names are short words such as `fc3theme`), *Dragon Age: Origins* DLC (41 characters: only the first digit of the Title ID byte), and avatar items (the 16-byte asset ID at `0x3E1`).
 5. **GOD header names (§5).** How long are the header names of Aurora's Disc to GOD rips? Do real Xbox Live GOD headers have 34-character names?
+   - **Yes.** ✅ A real Xbox Live GOD has 34 characters: the first 32 digits of the content ID plus the Title ID byte. Aurora's Disc to GOD rips and disc installs have 32 characters, ending with the media ID.
 6. **Disc install signatures (§2.2).** Is a disc install (`00004000`) header labelled `CON`?
+   - **Yes.** ✅ `CON`, signed, with one console licence.
 7. **Aurora's Disc to GOD signature (§2.3).** Is the header of an Aurora Disc to GOD rip labelled `LIVE`, with a blank signature?
+   - **Yes.** ✅ All 8 Disc to GOD rips (made with Aurora's Disc to GOD, the drive owner confirmed) are `LIVE` with an all-zero signature.
 8. **Licences on a modded console (§2.2).** Does purchased content copied to another modded console play without being unlocked?
-9. **Avatar award items (§4.5).** Is an awarded item stored at `Content/0000000000000000/<awarding TitleID>/00009000/`, and what is its header labelled (`PIRS`, `LIVE` or `CON`)?
-10. **Player-made content (§4.8).** What content type do *Halo 3* Forge maps, saved films and screenshots, and *Minecraft* worlds use?
+   - **Left open.** It needs a second console, and none is available. The files do confirm that paid DLC has two licences: an XUID and the console.
+9. **Avatar award items (§4.6).** Is an awarded item stored at `Content/0000000000000000/<awarding TitleID>/00009000/`, and what is its header labelled (`PIRS`, `LIVE` or `CON`)?
+   - **Yes.** ✅ Under the awarding title (for example *Halo Waypoint*'s `4D5308CE`). Award items are `PIRS`, and bought ones `LIVE`. 🔶 (Award or bought is judged by name.) **Left open:** confirming it would mean reading inside packages, which won't be done.
+10. **Player-made content (§4.9).** What content type do *Halo 3* Forge maps, saved films and screenshots, and *Minecraft* worlds use?
+   - **For *Halo*: SavedGame (`00000001`)** ✅ in the profile partition. *Halo 3* Forge maps are `usermap…` saves, and *Reach* and *Halo 4* map variants are saves too. Saved films, screenshots and *Minecraft* worlds weren't on either drive. They are probably saves too. 🔶 Left as that: other games' content won't be checked one by one.
 11. **FATX case (§5).** Does the console find content in lowercase directories, such as `4d5307e6/000d0000/`, and a data directory spelled `<name>.DATA`?
+   - **Partly.** Every directory was uppercase, but the console writes some file names in lowercase (title updates, XNA packages, gamer picture caches). Whether it finds lowercase directories, or `.DATA`, would need a test on a real FATX drive. **Left open:** that test won't be done. The spec treats the console as probably case-insensitive (§5, §7.1). 🔶
 12. **The X1 question.** What format are the user's ripped games in (§4.3), and were past copies complete?
+   - **Answered.** ✅ The games are SVOD, not extracted rips. The old app's output (`NewContent/` on the USB drive, of which the local copy is a subset) has every SVOD header but no `.data/` directories. The 24 complete SVOD packages elsewhere on the drive match §3.2 exactly.
