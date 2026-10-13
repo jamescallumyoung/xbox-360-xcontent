@@ -616,13 +616,32 @@ The first 4 bytes are the magic: `CON ` (note the trailing space), `LIVE` or `PI
 | `0x006` | `0x5` (5) | Certificate owner console ID |
 | `0x00B` | `0x14` (20) | Console part number (text) |
 | `0x01F` | `0x1` (1) | Console type: `0x01` devkit, `0x02` retail |
-| `0x020` | `0x8` (8) | Certificate date (text) |
+| `0x020` | `0x8` (8) | Certificate date (text, see below) |
 | `0x028` | `0x4` (4) | Public exponent |
 | `0x02C` | `0x80` (128) | Public modulus |
 | `0x0AC` | `0x100` (256) | Certificate signature (by Microsoft) |
 | `0x1AC` | `0x80` (128) | Package signature (RSA-1024, by the console) |
 
 **`LIVE` and `PIRS` packages** carry a `0x100`-byte Microsoft signature at `0x004`, followed by padding up to `0x22C`. ✅ Tool-made `LIVE` packages leave the signature empty (§2.3).
+
+#### The certificate date field
+
+The certificate date at `0x020` is 8 bytes of ASCII text. ✅ Free60 calls it the "Certificate Date of Generation", and Velocity reads it as a plain string without parsing it. Neither gives its format.
+
+Real `CON` packages hold text that looks like a date, with two-digit fields separated by hyphens. ✅ 29 `CON` packages were checked, and held two values:
+
+| Value | Packages |
+|---|---|
+| `11-06-09` | 28 |
+| `01-12-10` | 1 |
+
+The format is not known. ❓
+- **Field order:** both values are valid as month-day-year and as day-month-year, so they don't show which it is. A value with a number above 12 in either of the first two fields would settle it.
+- **Year:** it has only two digits, and no source says which century.
+- **Time zone:** no source gives one.
+- **Enforcement:** nothing suggests the console checks this text. Treat it as a string that may hold anything.
+
+So a reader should return the text as it is, and not parse it into a date.
 
 ### 6.3 Licences, content ID and header size (`0x22C`–`0x344`)
 
@@ -709,7 +728,7 @@ xenia declares the same six flags as a C bitfield, which a reader could take to 
 
 **Language slots.** The display name and description fields are each **9 slots of `0x100` bytes** (128 UTF-16 characters) ✅ (xenia: `chars[kNumLanguagesV1][128]` with `kNumLanguagesV1 = 9`.)
 
-Slot *n* holds the language with ID *n* + 1: ✅
+Slot *n* holds the language with ID *n* + 1: ✅ Slots 9 to 11 exist only in metadata version 2 (see below).
 
 | Slot | Language |
 |---|---|
@@ -722,10 +741,19 @@ Slot *n* holds the language with ID *n* + 1: ✅
 | 6 | Korean |
 | 7 | Traditional Chinese |
 | 8 | Portuguese |
+| 9 | Unnamed Language (possibly Simplified Chinese) 🔶 |
+| 10 | Polish |
+| 11 | Russian |
 
-Each slot is padded with zeros. Empty slots are all zeros, so a reader should skip them.
+Each slot is padded with zeros. Empty slots are all zeros, so a reader should treat them as empty.
 
-**Metadata version 2** (§6.1) adds three more languages. 🔶 Their names and descriptions go in `0x300`-byte blocks taken from the end of each thumbnail's space: names at `0x541A` and descriptions at `0x941A`. ✅ So each thumbnail can be at most `0x3D00` bytes in version 2, instead of `0x4000`. The thumbnails don't move. ✅ xenia's language list suggests the extra three include Polish and Russian. 🔶
+**Metadata version 2** (§6.1) adds three more languages: slots 9 to 11. ✅ Their names and descriptions go in `0x300`-byte blocks taken from the end of each thumbnail's space: names at `0x541A` and descriptions at `0x941A`. ✅ So each thumbnail can be at most `0x3D00` bytes in version 2, instead of `0x4000`. The thumbnails don't move. ✅
+
+xenia reads the extra slots with the same rule as the first nine: slot = language ID − 1. ✅ The *South Park* fixture confirms two of them, once its UTF-8 problem is undone. Slot 10 holds its Polish name ("South Park™: KP") and slot 11 its Russian name ("Южный парк™: П. И."). ✅ Slot 9 is less certain. xenia, rom-properties and Free60 all give language ID 10 as Simplified Chinese. xenia-canary has since moved Simplified Chinese to ID 17 and left ID 10 unnamed. No fixture has text in slot 9. 🔶
+
+There are no slots for languages beyond ID 12. ✅ Later consoles have more language IDs (xenia-canary lists Swedish, Turkish, Norwegian and Dutch as 13 to 16), but xenia reads the English slot for any ID above 12. 
+
+> ⚠️ rom-properties declares 18 slots of `0x80` bytes, plus 6 more in version 2. The fixtures don't match that: their language names are `0x100` bytes apart. This is assumed to be a mistake in rom-properties. ❓ Further research may prove otherwise.
 
 ### 6.6 STFS: blocks, hash tables and files
 
@@ -980,6 +1008,7 @@ What the drives established, by section:
   - Metadata version 1 is stored as 0.
   - `CON` headers can be `0xAD0E`.
   - The content ID doesn't cover the licences.
+  - The certificate date's values (§6.2), from 29 `CON` packages in the copy, checked on 2026-10-13.
 - **§7:** the invalid layouts in §7.3 were all found on real drives, except where marked. Headers often disagree with their directory (§7.2). The old copier's output had every SVOD header but no `.data` directories (the X1 question).
 
 ### 8.4 §1: The big picture
@@ -1171,9 +1200,16 @@ What the drives established, by section:
   - xenia-canary `kernel/xam/xcontent/xcontent.h` (`XContentHeader`, `XContentMetadata`, `XContentLicense`, `XContentAttributes`).
   - xenia-canary `kernel/util/xex2_info.h` (`xex2_opt_execution_info`).
   - Velocity `XboxInternals/Stfs/XContentHeader.cpp` and `StfsDefinitions.h` (`Certificate`).
+  - **Certificate date:** Free60's STFS page (an 8-byte ASCII string, "Certificate Date of Generation", with no format) and Velocity `XboxInternals/Stfs/StfsDefinitions.cpp` (`ReadCertificateEx` reads it as a plain string).
 - **STFS and SVOD structures:** xenia-canary `vfs/devices/stfs_xbox.h` (`StfsVolumeDescriptor`, `StfsHashEntry`, `StfsHashTable`, `StfsDirectoryEntry`, `SvodDeviceDescriptor`) and `xcontent_devices/stfs_container_device.cc` (`BlockToOffset`).
 - **SVOD layouts:** xenia-canary `xcontent_devices/svod_container_device.cc` (`SvodLayoutType`).
-- **Languages:** xenia-canary `xbox.h` (`XLanguage`) and `xcontent.h` (`kNumLanguagesV1 = 9`, `kNumLanguagesV2 = 12`).
+- **Languages:**
+  - xenia-canary `xcontent.h` (`kNumLanguagesV1 = 9`, `kNumLanguagesV2 = 12`, and `display_name()`, which reads slot ID − 1 and falls back to English above 12). Checked at commit `2372a54`.
+  - xenia `xbox.h` (`XLanguage`: Simplified Chinese 10, Polish 11, Russian 12). Checked at commit `95a5c3e`.
+  - xenia-canary `xbox.h` (`XLanguage`: ID 10 unnamed, Polish 11, Russian 12, Swedish to Dutch 13 to 16, Simplified Chinese 17). The change is commit `9ce91e5` ("Listed extended languages").
+  - rom-properties `xbox360_xdbf_structs.h` (`XDBF_Language_e`: Simplified Chinese 10, Polish 11, Russian 12) and `xbox360_stfs_structs.h` (18 slots of `0x80` bytes).
+  - Free60 `System-Software/Profile_Account.md` (`ConsoleLanguage`: SChinese, Polish, Russian after Portuguese).
+  - The *South Park* fixture (§8.2): Polish and Russian names in slots 10 and 11.
 - **Transfer flags:** Velocity `Velocity/transferflagsdialog.cpp` (explicit bit values).
 - **String encoding:** rom-properties (UTF-16BE, and the UTF-8-as-UTF-16BE problem), and the *South Park* fixture (§8.2).
 - **Header sizes:** emoose `Xbox360Container.bt` (LIVE and PIRS headers are `0xAD0E` "because they include XCONTENT_METADATA_INSTALLER"), and the GOD fixtures (§8.2).
