@@ -88,9 +88,12 @@ Why not `{ declared, effective }` for lookups: "effective" would suggest the con
 ### 2.4 Text
 
 - **Encoding:** UTF-16BE (§6.5).
-- **Termination:** a string ends at the first `0x0000` code unit, like a C `char16_t[]`. If a field has no `0x0000`, the string uses the field's full width. Code units are read in 2-byte steps from the field's start, so a character such as "0" (`00 30`) is never mistaken for the terminator.
-- **Empty fields** (first unit `0x0000`) are `null`.
-- **Lossless:** every code unit is kept exactly as stored, including unpaired surrogates (the only way UTF-16 can be malformed). No replacement with U+FFFD, and no failure. Consumers can use `String.prototype.isWellFormed()` and `toWellFormed()` (ES2024, Node 20+, current browsers). V1 can report unpaired surrogates.
+- **Decoding uses `TextDecoder('utf-16be')`** in its default (replacement) mode, not hand-written code. Decided 2026-10-13, replacing an earlier "lossless" decision.
+- **Unpaired surrogates become U+FFFD** (`�`), the standard replacement character. This is the only way UTF-16 can be malformed. The exact value of a broken code unit is lost. That was judged acceptable: nobody has needed it, U+FFFD is the well-understood standard representation, and it avoids decoding UTF-16 by hand. Strings returned by the package are therefore always well-formed.
+- **Termination:** a string ends at the first U+0000 character (found with `indexOf('\0')` on the decoded text), like a C `char16_t[]`. U+0000 only comes from a `00 00` code unit, so a character such as "0" (`00 30`) is never mistaken for the terminator. If a field has no U+0000, the string uses the field's full width.
+- **Empty fields** (first code unit `0x0000`) are `null`.
+- **V1** detects unpaired surrogates with a second `TextDecoder('utf-16be', { fatal: true })`, which throws on malformed text. That becomes a `text-unpaired-surrogate` finding.
+- **ASCII fields** (the certificate's part number and date) use `TextDecoder('latin1')`.
 - **No repair:** text stored as UTF-8 inside UTF-16BE (the *South Park* fixture) is returned as decoded. Undoing it would be a heuristic.
 
 ### 2.5 Thumbnails
@@ -179,7 +182,7 @@ The magic is checked first because "not a package" is a more useful answer than 
 | unknown content type | its `number` |
 | unknown licensee type | `{ raw, decoded: 'unknown' }` |
 | any identifier, including all zeros | its hex string |
-| unpaired surrogates in text | kept as they are (§2.4) |
+| unpaired surrogates in text | replaced with U+FFFD by `TextDecoder` (§2.4) |
 | text stored as UTF-8 inside UTF-16BE | returned as decoded (§2.4) |
 
 **What parsing can't detect.** The header has no markers between fields: a byte's meaning comes only from its offset. So parsing can't tell whether an image spilled past its space while declaring a size that fits. V1 can find most such cases indirectly: an image whose PNG structure doesn't end at the declared size, or, in version 1, a title thumbnail that no longer starts with the PNG signature.
@@ -396,14 +399,41 @@ The full design, including the check table, is in [function-design-doc.md](funct
 
 ## 6. Runtime and packaging
 
-- **Crypto:** `globalThis.crypto.subtle`. No bundled crypto code.
-- **`engines`:** `"node": ">=20"`, the actual minimum that can run the package.
-- **README notice:** "Works in browsers and any runtime that ships `globalThis.crypto.subtle`, including Node >= 20, Deno, and Bun." Also note that browsers only expose `crypto.subtle` in secure contexts (https or localhost). It must also note the package-wide rules in §3.3: pre-check failures end a function early, and the order of reasons is not part of the contract.
-- **Browser compatibility comes from:** ESM only, no imports of Node's built-in modules, only standard globals.
-- **TypeScript:** public types use only `Uint8Array`, `Promise` and plain types, so consumers need no DOM or Node type libraries. The package's own `tsconfig` needs a `lib` that declares `crypto`.
-- **Open:** project setup (monorepo location, test framework, build).
+### 6.1 Runtime
 
----
+- **Node:** `"engines": { "node": ">=22" }`. Node 22 supports ES2024 in full, and Vitest 5 needs Node 22.12+ to run the tests. (Node 20, considered earlier, is end of life and can't run Vitest 5.)
+- **`target` and `lib`:** `es2024`. The browser minimum is therefore roughly Chrome 119, Firefox 121 and Safari 17.4 (early 2024).
+- **Web APIs** are declared in a small `src/runtime.d.ts`, not through a `lib` such as `dom` or `types` such as `node`, which would allow a whole platform's globals:
+  - `globalThis.crypto.subtle.digest('SHA-1', …)`, used only by V1
+  - `TextDecoder`, used for all text
+- **No bundled crypto code.**
+- **Prefer documented APIs to hand-written code.** For example, `TextDecoder` rather than decoding UTF-16 by hand.
+- **Hex identifiers:** `Uint8Array.prototype.toHex()` would do this, but isn't available before Node 25. A shared util `toHex(bytes)` does the same, with JSDoc pointing to `Uint8Array.prototype.toHex`, so it can be swapped out later. It uses `Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('').toUpperCase()`. `Number.prototype.toString(16)` alone can't do it: identifiers are up to 20 bytes, far beyond a `number`, and leading zero bytes must be kept.
+- **Browser compatibility comes from:** ESM only, no imports of Node's built-in modules, and only the globals in `runtime.d.ts`.
+- **Public types** use only `Uint8Array`, `Promise` and plain types, so consumers need no DOM or Node type libraries.
+
+### 6.2 README requirements
+
+- "Works in browsers and any runtime that ships `globalThis.crypto.subtle` and `TextDecoder`, including Node >= 22, Deno, and Bun." Browsers only expose `crypto.subtle` in secure contexts (https or localhost).
+- For developers: running the tests needs Node 22.12+ (Vitest 5).
+- Callers should read `0xB000` bytes, which covers every function.
+- The package-wide rules in §3.3: pre-check failures end a function early, and the order of reasons is not part of the contract.
+
+### 6.3 Project setup (decided 2026-10-13)
+
+- **Location:** `packages/xcontent-header/`. The name `xcontent-header` is free on npm.
+- **Package manager:** pnpm 12 for the whole repo, pinned with the `packageManager` field (Corepack isn't bundled with Node 25+). CI's pnpm version (`deploy.yml`, currently 11.1.3) moves to 12 too.
+- **TypeScript 7** (the native Go compiler) builds and type-checks. typescript-eslint doesn't support 7 yet, because 7.0 has no programmatic API, so TypeScript 6 is installed alongside: `"typescript": "npm:@typescript/typescript6@^6.0.2"` (used by typescript-eslint; its binary is `tsc6`) and `"@typescript/native": "npm:typescript@^7.0.2"` (binary `tsc`). Drop the alias once typescript-eslint supports 7.
+- **Linting:** typescript-eslint's strictest bundled config, `strictTypeChecked`.
+- **Two tsconfigs:**
+  - `tsconfig.json`: `src/` without tests, `types: []`, emits JS and source maps to `dist/js/`, and `.d.ts` and declaration maps to `dist/types/`.
+  - `tsconfig.test.json`: `src/` with tests, `types: ["node"]` so tests can read fixture files, no emit. Library code can never use Node APIs.
+- **Strict options** (on top of TypeScript 6+'s default `strict`): `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`, `noUnusedParameters`, `allowUnreachableCode: false`, `allowUnusedLabels: false`, `verbatimModuleSyntax`, `isolatedModules`, `isolatedDeclarations`, `erasableSyntaxOnly`, `forceConsistentCasingInFileNames`, `skipLibCheck: false`. `module: nodenext`.
+- **`package.json`:** `"type": "module"`; `"sideEffects": false` (lets bundlers drop unused modules; the package has no import-time side effects); `exports` with `types` and `default` conditions for `.` and `./extended`; `"files": ["dist", "src"]` without tests, since the source maps point at `src/`.
+- **Exports:** composite functions from the root; single-purpose parsers from `xcontent-header/extended`. V1's checks stay internal; more can be exported later if needed.
+- **Tests:** Vitest 5, with explicit imports from `vitest` (no globals).
+- **Structure:** vertical slices, one per public function, plus an internal `src/shared/` folder (pre-checks, the field table, `toHex`, text decoding) that any slice may import. Slices never import each other. `CLAUDE.md` is updated to say so.
+- **Fixtures:** the first `0xB000` bytes of 11 real packages, in `src/__tests__/fixtures/` (see §9).
 
 ## 7. Shelved
 
@@ -425,9 +455,34 @@ The full design, including the check table, is in [function-design-doc.md](funct
 
 ---
 
-## 9. Fixture note
+## 9. Fixtures
 
-The four real-header fixtures in the old `xcontent` package are data from real drives, not old code. Whether to reuse them is part of project setup. If they are reused:
+The first `0xB000` bytes of 11 real packages, in `packages/xcontent-header/src/__tests__/fixtures/` (copied 2026-10-13; not staged or committed). Eight come from the local real-content copy (`fixtures/Content`, a symlink to `~/Documents/XboxContent/`, now in `.gitignore`), and three are the good fixtures from the old `xcontent` package:
 
-- **`dlc-halo-reach-anniversary` is incomplete:** the file is `0x6000` bytes (24 KiB), but its header size is `0xAD0E`, and its title thumbnail is cut off. Under §3.1, `parseHeader` returns `insufficient-bytes` for it. Replace it with the first `0xB000` bytes of the same package.
-- In the other three, both thumbnails fit their space, and each PNG's chunks add up exactly to the declared size.
+| Fixture | Covers |
+|---|---|
+| `con-971a-mv2-xna-save` | `CON`, `0x971A` header, metadata version 2, an XNA indie save |
+| `con-971a-mv0-download-in-progress` | `CON`, `0x971A`, metadata version 0, a download in progress (§4.4), no thumbnail |
+| `con-ad0e-svod-disc-install` | `CON` with a `0xAD0E` header, SVOD, a disc install |
+| `live-stfs-dlc-non-ascii` | `LIVE` STFS DLC, display name with `™` |
+| `live-stfs-mv0-title-update` | `LIVE` STFS title update, metadata version 0, display name with `®` |
+| `live-svod-god-empty-signature` | `LIVE` SVOD GOD made by a tool: all-zero signature |
+| `pirs-stfs-dlc-non-ascii` | `PIRS` STFS DLC, display name with `’` |
+| `pirs-stfs-avatar-item-no-thumbnail` | `PIRS` avatar item, thumbnail size 0 |
+| `live-stfs-dlc-halo-wars` | `LIVE` STFS DLC (old fixture, trimmed to `0xB000`) |
+| `live-svod-god-dead-island-riptide` | `LIVE` SVOD GOD (old fixture) |
+| `live-svod-god-south-park-mojibake` | `LIVE` SVOD GOD with UTF-8 stored as UTF-16BE (old fixture) |
+
+- **Not covered:** a non-PNG thumbnail (none in the local copy; Iso2God-made GODs on the USB drive would have one) and a profile partition package.
+- **The old `dlc-halo-reach-anniversary` fixture was dropped:** it is only `0x6000` bytes, but its header size is `0xAD0E`.
+- **Personal identifiers were removed** (2026-10-13), and replaced with obvious placeholders:
+
+  | Field | Placeholder |
+  |---|---|
+  | console IDs: certificate `0x006`, creator `0x36C`, and console licences | `0123456789` |
+  | `CON` public modulus, certificate signature and package signature | `0xA5` repeated, so the signature isn't "empty" |
+  | XUID licences' licensee data | `000000000001` |
+  | profile ID `0x371` | `0009000000000001` |
+  | device ID `0x3FD` (a drive serial number, in ASCII) | `FIXTURE0DEVICE0ID000` |
+
+  Where a placeholder sits inside the content ID's range (`0x344` on), the content ID was recomputed, so every fixture still passes V1's content ID check. Signatures no longer match, but nothing verifies them. The `0x971A` `CON` fixtures were trimmed to `0xA000`, the end of their padded header, which drops the start of their data area. A search of every fixture, at every offset, found none of the original identifiers or key material. Certificate part numbers and dates were kept: they identify a hardware model and batch, not a console.

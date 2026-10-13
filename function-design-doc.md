@@ -54,7 +54,9 @@ These rules apply to every function. They belong in the package's API documentat
 
    **Internal check functions.** Each V1 check is its own single-purpose internal function. Its JSDoc points to the spec section that defines the rule, and states the rule's confidence as `verified`, `widely-reported` or `unconfident` (the spec's ✅, 🔶 and ❓). Source code doesn't use the spec's emoji.
 
-7. **Runtime.** The package needs `globalThis.crypto.subtle` (for V1). The README is to say: "Works in browsers and any runtime that ships `globalThis.crypto.subtle`, including Node >= 20, Deno, and Bun." `engines` is `"node": ">=20"`. The package doesn't use `Temporal` or `Date`.
+7. **Runtime.** The package needs ECMAScript 2024, `TextDecoder` (for text) and `globalThis.crypto.subtle` (for V1). They are declared in `src/runtime.d.ts`, not through a `dom` or `node` type library. The README is to say: "Works in browsers and any runtime that ships `globalThis.crypto.subtle` and `TextDecoder`, including Node >= 22, Deno, and Bun." `engines` is `"node": ">=22"`. Running the tests needs Node 22.12+ (Vitest 5). The package doesn't use `Temporal` or `Date`.
+
+8. **Documented APIs over hand-written code.** For example, `TextDecoder` rather than decoding UTF-16 by hand. Where no API is available yet, the code goes in a clearly named util whose JSDoc points to the API it stands in for. For example, `toHex(bytes)` stands in for `Uint8Array.prototype.toHex()`, which needs Node 25+.
 
 ---
 
@@ -188,10 +190,10 @@ export const LanguageSlot = {
 
 **Text** (`displayNames`, `descriptions`, `publisherName`, `titleName`)
 
-27. Text is decoded as UTF-16BE, reading 2-byte code units from the start of each field (§6.5).
-28. A string ends at the first `0x0000` code unit, like a C `char16_t[]`. When a field holds no `0x0000` unit, the string uses the field's full width: 128 units for a display name or description slot (`0x100` bytes), and 64 units for `publisherName` and `titleName` (`0x80` bytes).
+27. Text is decoded with `TextDecoder('utf-16be')` in its default (replacement) mode (§6.5).
+28. A string ends at the first U+0000 character. When a field holds none, the string uses the field's full width: 128 code units for a display name or description slot (`0x100` bytes), and 64 for `publisherName` and `titleName` (`0x80` bytes). U+0000 only comes from a `00 00` code unit, so a character such as "0" (`00 30`) never ends a string.
 29. A field whose first code unit is `0x0000` is `null`.
-30. Every code unit is kept exactly as stored, including unpaired surrogates. `parseHeader` neither replaces them with U+FFFD nor fails. Consumers can use `String.prototype.isWellFormed()` and `toWellFormed()`.
+30. Unpaired surrogates, the only way UTF-16 can be malformed, are replaced with U+FFFD (`�`). Strings returned by `parseHeader` are therefore always well-formed. The exact value of a broken code unit is not kept.
 31. Text is never repaired. A string stored as UTF-8 bytes inside UTF-16BE (the *South Park* fixture, §6.5) is returned exactly as decoded.
 
 **Language slots**
@@ -763,7 +765,7 @@ type Finding = {
 | `volume-descriptor-length` | the byte at `0x379` ≠ `0x24` (§6.6, §6.7) | warning |
 | `stfs-has-data-files` | an STFS package with a non-zero data file count (`0x39D`) or combined size (`0x3A1`) (§6.4) | warning |
 | `metadata-version-unknown` | the stored metadata version is not 0, 1 or 2 (§6.1) | warning |
-| `text-unpaired-surrogate` | malformed UTF-16 in any text field (§6.5) | warning |
+| `text-unpaired-surrogate` | malformed UTF-16 in any text field, detected with `TextDecoder('utf-16be', { fatal: true })` (§6.5) | warning |
 | `licensee-type-unknown` | a licence with an undocumented type (§6.3) | warning |
 | `value-exceeds-max-safe-integer` | `contentSize` or `dataFilesSize` > 2⁵³ − 1 (§6.4) | warning |
 | `thumbnail-not-png` | a non-empty thumbnail doesn't start with the PNG signature (§6.4) | info |
@@ -824,6 +826,6 @@ How other software treats each field, researched on 2026-10-13 from source code:
 - **Spec:** header overview, padding and metadata versions §6.1; magic and signature §6.2; content ID §6.3; metadata §6.4; text and thumbnails §6.5; identifying a package §6.9; confidence marks at the top of the spec.
 - **Why V1 needs the padding:** the content ID is the SHA-1 of `0x344` up to the end of the padded header, not up to the header size (§6.3). This was confirmed on 2026-10-13 against all 772 real packages available (591 on the USB drive, 181 in the local copy), of every magic and both header sizes. Hashing only up to the header size matched none.
 - **Why the content ID check is kept:** it's the only check that catches corruption or naive edits inside the metadata. Every other check only asks whether values are plausible.
-- **Runtime requirements:** `globalThis.crypto.subtle` exists in browsers (in secure contexts only: https or localhost), Node 20+, Deno and Bun. The package's `engines` field says `"node": ">=20"`.
+- **Runtime requirements:** `globalThis.crypto.subtle` exists in browsers (in secure contexts only: https or localhost), Node 22+, Deno and Bun. The package's `engines` field says `"node": ">=22"`.
 - **Relationship to the parse functions:** the parse functions report what's there, and fail only when a value can't be represented truthfully. V1 judges whether what's there is acceptable.
 - **What V1 can't catch:** a thumbnail that spilled into the next field while declaring a size that fits. The PNG check catches most such cases (a cut-off image), and in metadata version 1, a spill into the title thumbnail also breaks its PNG signature. A spill into version 2's extra language block can't be detected reliably.
