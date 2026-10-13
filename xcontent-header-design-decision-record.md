@@ -125,7 +125,7 @@ export const LanguageSlot = {
 Every function needs bytes from `0x000` up to the header size stated at `0x340` (`0x971A` or `0xAD0E`). A partial header, such as the first `0x2000` bytes, is not accepted.
 
 - **Why:** V1, `equals` and `diff` need the whole header anyway. It also removes "parsed, but some fields unavailable" states from every result type.
-- **For callers:** the header size is unknown before reading, so read `0xAD0E` bytes (or `0xB000`, including padding). Extra bytes, such as the rest of an STFS package, are ignored.
+- **For callers:** the header size is unknown before reading, so read `0xB000` bytes, which also covers V1's need for the padded header. Extra bytes, such as the rest of an STFS package, are ignored.
 - **Cost:** a full header is 37.8 KiB (`0x971A`) or 43.3 KiB (`0xAD0E`), against 8 KiB for `0x2000`. For 591 packages that's about 26 MB against 4.7 MB, still one read per package.
 
 ### 3.2 Pre-checks, run first by every function
@@ -374,45 +374,25 @@ In metadata version 2, each thumbnail's space is `0x3D00`. The freed `0x300` byt
 
 ---
 
-## 5. V1 `verifyHeaderAsync` (findings design pending)
+## 5. V1 `verifyHeaderAsync`
 
-Decided:
+The full design, including the check table, is in [function-design-doc.md](function-design-doc.md) (V1). Decided:
 
-- **Async**, because the content ID check needs SHA-1. It's the only async function.
+- **Async**, because the content ID check needs SHA-1 from `globalThis.crypto.subtle`. It's the only async function.
+- **Result follows `equals`:** `Promise<[true, valid, Finding[]] | [false, false, VerifyFailureReason[]]>`. A pre-check failure is the usual separate outcome, not a finding, and V1 fails fast like every other function.
+- **Needs the padded header.** The content ID is the SHA-1 of `0x344` up to the padded end (`0xA000` or `0xB000`), not up to the header size. This was confirmed on 2026-10-13 against all 772 available real packages (591 on the USB drive, 181 in the local copy), and the spec's §6.1, §6.3 and §8.3 were corrected. V1's last size pre-check therefore requires `0xA000` or `0xB000` bytes. Every other function still requires only the header size, so they don't need more bytes. The README tells callers to read `0xB000` bytes.
 - **Detects the format from the header.** It doesn't accept an expected format.
-- **The content ID check is kept:** SHA-1 of the header from `0x344` up to the header size must equal the content ID at `0x32C` (§6.3). It's the only check that catches corruption or naive edits inside the metadata.
-- **Metadata version:** stored values 0, 1 and 2 all pass. Any other value is a warning, not an error.
+- **Collects every finding,** skipping checks that depend on one that failed.
+- **Findings have a single shape:** `code`, `severity` (`error | warning | info`), `confidence` (`verified | widely-reported | unconfident`, the spec's ✅ 🔶 ❓), `specRef`, `field` (a `diff` key) and `message`. Details specific to a check go in the brief English `message`. A hex value longer than 16 digits is truncated to its first 6 and last 6 digits, with its length noted: `1BD319…4E02C3 (40 digits, truncated)`.
+- **Severity reflects how strictly a requirement is enforced** by the console and other projects (xenia and Velocity in particular), not the spec's confidence marks, which turned out to be a poor guide. Non-strict mode is permissive: an error only when we're quite certain the header is incorrect. Severities will be tuned by hand over time. Any finding that isn't an error or a warning is `info`, and `info` never fails validation. (An earlier rule, ✅ → error and 🔶/❓ → warning, was replaced.)
+- **`{ strictMode: true }`** makes warnings fail validation too (`[true, false, …]`). Off by default.
+- **Each check is an internal single-purpose function,** whose JSDoc points to its spec section and states the rule's confidence as `verified`, `widely-reported` or `unconfident`. No emoji in source code.
+- **The check list is agreed** (see the design doc). Dropped: "an SVOD header file is exactly `0xB000` bytes", which moves to the SVOD package.
+- **Severities are agreed** (2026-10-13), from the severity chart in the design doc (V1), researched from the source of Velocity, xenia, rom-properties, py360, acceleration, emoose's template, iso2god-rs, Iso2God and XeBuild, plus kernel patch sources. Errors: `content-id-mismatch`, `thumbnail-exceeds-space`, `volume-type-unknown`, `console-type-unknown`. Warnings: `volume-descriptor-length`, `stfs-has-data-files`, `metadata-version-unknown`, `text-unpaired-surrogate`, `licensee-type-unknown`, `value-exceeds-max-safe-integer`. Info: `thumbnail-not-png`, `thumbnail-truncated` (tool-made GODs commonly have non-PNG thumbnails), `content-type-unknown`, `transfer-flags-unknown-bits`, `reserved-not-zero`, `signature-padding-not-zero`, `signature-empty`.
 
-Candidate checks (not yet agreed):
+**JSDoc states the bytes each function requires, per header size:** for V1, `0xA000` bytes when the header size at `0x340` is `0x971A` and `0xB000` when it is `0xAD0E`; for every other function, `0x971A` and `0xAD0E` bytes respectively. `0xB000` bytes always suffices.
 
-- magic valid; header size `0x971A` or `0xAD0E`; volume type 0 or 1; volume descriptor length `0x24`; STFS has data file count 0
-- an SVOD header file is exactly `0xB000` bytes (needs the whole file as input)
-- thumbnail sizes fit their space; thumbnails are PNG, with `IEND` ending exactly at the declared size
-- content type is known
-- `reserved` and `signaturePadding` are zero (internal checks; the spec doesn't require zeros, so `info` at most)
-- unpaired surrogates in text
-- 64-bit sizes within `Number.MAX_SAFE_INTEGER`
-
-**Open: the shape of findings.** Starting point:
-
-```ts
-type Finding = {
-  code: string          // stable, e.g. 'header-size-unknown'
-  severity: 'error' | 'warning' | 'info'
-  specRef: string       // e.g. '§6.1'
-  offset?: number
-}
-type VerifyResult = { valid: boolean; findings: Finding[] }  // valid = no errors
-```
-
-Questions to settle:
-
-- **a.** Severity from the spec's confidence marks: breaking a ✅ rule is an error, breaking a 🔶 rule a warning?
-- **b.** English `message` on findings, or codes only?
-- **c.** Collect every finding, skipping checks that depend on a failed one?
-- **d.** Are the pre-check failures (§3.2) findings, or a separate outcome before any check runs?
-
----
+**JSDoc style:** no parameter or return types (the source is TypeScript). Plain-English commentary on what, why and how. A short first paragraph, since editors show it on hover; extra context in later paragraphs, only when genuinely useful.
 
 ## 6. Runtime and packaging
 

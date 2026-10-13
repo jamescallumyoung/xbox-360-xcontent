@@ -586,7 +586,7 @@ Offsets and sizes are in bytes, and offsets are from the start of the file. Numb
 | `0x344` | `0x93D6` (37,846) | Metadata, ending at `0x971A` (§6.4, §6.5) |
 
 - **Header size:** the size of the header that's actually used is stored at `0x340`. It is either `0x971A`, or `0xAD0E` for packages that add extra installer metadata. 🔶 It is usually `0x971A` for `CON` packages and `0xAD0E` for `LIVE` and `PIRS`, but not always: disc installs and downloads in progress (§4.4) are `CON` with `0xAD0E`. ✅ So read the size at `0x340`. Don't infer it from the magic.
-- **Padding:** the header is padded to the next 4 KiB boundary: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header. 🔶
+- **Padding:** the header is padded to the next 4 KiB boundary: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header. ✅ The padding is part of the header: the content ID covers it (§6.3).
 - **How much to read:** a tool doesn't need the whole header to identify a package.
   - The **first `0x2000` bytes** (8 KiB) hold every field up to the start of the thumbnails at `0x171A`. That covers the magic, signature, licences, metadata and the nine main language strings.
   - To get the **thumbnails**, read up to `0x971A`.
@@ -599,6 +599,8 @@ Offsets and sizes are in bytes, and offsets are from the start of the file. Numb
 | `0x3D9` (`0x24` bytes) | Unused | Media data or avatar asset data (§6.4) |
 | Languages | 9 | 12. The three extra are stored in the thumbnails' space (§6.5). |
 | Space for each thumbnail | `0x4000` | `0x3D00` |
+
+> ⚠️ **xenia reads the thumbnail space differently.** xenia-canary allows `0x4000` only when the stored version is exactly 1, and `0x3D00` for anything else, including 0. ✅ So for real version 1 packages, which store 0, it allows less space than they have. This looks like a bug in xenia. Other parts of xenia treat only 2 as version 2, as described above.
 
 ### 6.2 Magic and signature (`0x000`–`0x22C`)
 
@@ -652,7 +654,7 @@ A package's **licences** say who may use it: anyone, a particular Xbox Live acco
 | Offset | Size | Field |
 |---|---|---|
 | `0x22C` | `0x100` (256) | 16 licence entries of `0x10` bytes each (below) |
-| `0x32C` | `0x14` (20) | Content ID: a SHA-1 hash of the header from `0x344` up to the header size at `0x340` 🔶. It doesn't cover the licences: unlocking a package leaves it unchanged (§4.8). ✅ Velocity calls it the header hash. |
+| `0x32C` | `0x14` (20) | Content ID: a SHA-1 hash of the header from `0x344` up to the end of the padded header: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header (§6.1). ✅ It covers the padding, not just the bytes up to the header size at `0x340`. It doesn't cover the licences: unlocking a package leaves it unchanged (§4.8). ✅ Velocity calls it the header hash. |
 | `0x340` | `0x4` (4) | Header size (§6.1) |
 
 Each licence entry is: ✅
@@ -705,6 +707,10 @@ Licensee types (Velocity): `0xFFFF` unrestricted (so `0xFFFFFFFFFFFFFFFF` means 
 | `0x571A` | `0x4000` (16,384) or `0x3D00` (15,616) | Title thumbnail (PNG) |
 
 Fields `0x354`–`0x36B` are the same execution info a game's `.xex` carries in its optional header `0x40006`. ✅ The Media ID identifies a particular disc or build, and the Title ID identifies the game.
+
+> ⚠️ **Sources disagree about `0x3AD`–`0x3D8`.** rom-properties and Free60's version 2 table put a series ID at `0x3B1`, inside the online creator field. emoose's template and acceleration agree with this specification: online creator at `0x3AD`, category at `0x3B5`, reserved bytes at `0x3B9`–`0x3D8`, and the version 2 media or avatar data at `0x3D9`. 🔶
+
+> ⚠️ **Iso2God writes the data file count in the wrong place.** iso2god-rs and the original Iso2God write it as a little-endian 4-byte number at `0x3A0`, not big-endian at `0x39D`. ✅ The two read the same only for counts below 256, about 41 GB of data files, so real GODs aren't affected.
 
 **Transfer flags** (`0x1711`), as Velocity reads them: ✅
 
@@ -1008,6 +1014,7 @@ What the drives established, by section:
   - Metadata version 1 is stored as 0.
   - `CON` headers can be `0xAD0E`.
   - The content ID doesn't cover the licences.
+  - The content ID is the SHA-1 of `0x344` up to the end of the padded header (§6.1, §6.3), checked on 2026-10-13. It matched every package: all 591 on the USB drive and all 181 in the copy, of every magic and both header sizes. Hashing only up to the header size matched none.
   - The certificate date's values (§6.2), from 29 `CON` packages in the copy, checked on 2026-10-13.
 - **§7:** the invalid layouts in §7.3 were all found on real drives, except where marked. Headers often disagree with their directory (§7.2). The old copier's output had every SVOD header but no `.data` directories (the X1 question).
 
@@ -1212,6 +1219,12 @@ What the drives established, by section:
   - The *South Park* fixture (§8.2): Polish and Russian names in slots 10 and 11.
 - **Transfer flags:** Velocity `Velocity/transferflagsdialog.cpp` (explicit bit values).
 - **String encoding:** rom-properties (UTF-16BE, and the UTF-8-as-UTF-16BE problem), and the *South Park* fixture (§8.2).
+- **How other software treats header fields** (checked on 2026-10-13, for §6.1 and §6.4):
+  - xenia-canary @ `2372a54`: `kernel/xam/xcontent/xcontent_package_container.cc` (thumbnail space by metadata version).
+  - Velocity @ `cf0b84c`: `XboxInternals/Stfs/XContentHeader.cpp` (`readMetadata`).
+  - rom-properties @ `75fb203` (`xbox360_stfs_structs.h`) and Free60's STFS page: series ID at `0x3B1`.
+  - emoose `Xbox360Container.bt` @ `5f85b9e` and acceleration @ `e7a6851`: the layout used here.
+  - iso2god-rs @ `76207d7` (`src/god/con_header.rs`) and Iso2God (decompiled, r4dius/Iso2God @ `09a6edf`, `ConHeaderWriter.cs`): the data file count at `0x3A0`.
 - **Header sizes:** emoose `Xbox360Container.bt` (LIVE and PIRS headers are `0xAD0E` "because they include XCONTENT_METADATA_INSTALLER"), and the GOD fixtures (§8.2).
 
 ### 8.10 §7: Rules for tools

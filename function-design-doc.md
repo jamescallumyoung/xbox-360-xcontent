@@ -45,7 +45,16 @@ These rules apply to every function. They belong in the package's API documentat
 
 4. **No exceptions for bad input.** Malformed, truncated or unrelated bytes produce failure reasons, never thrown errors.
 
-5. **Runtime.** The package needs `globalThis.crypto.subtle` (for V1). The README is to say: "Works in browsers and any runtime that ships `globalThis.crypto.subtle`, including Node >= 20, Deno, and Bun." `engines` is `"node": ">=20"`. The package doesn't use `Temporal` or `Date`.
+5. **JSDoc states the bytes each function requires,** for each header size, so callers don't have to infer it:
+   - **V1:** `0xA000` bytes when the header size stored at `0x340` is `0x971A`; `0xB000` bytes when it is `0xAD0E`.
+   - **Every other function:** `0x971A` bytes when the header size stored at `0x340` is `0x971A`; `0xAD0E` bytes when it is `0xAD0E`.
+   - **Always enough:** `0xB000` bytes. The README tells callers to read this much.
+
+6. **JSDoc style.** The source is TypeScript, so JSDoc doesn't repeat parameter or return types. It explains, in plain English, what a function does, why, and how to use it. The first paragraph is short, because many editors show it on hover. Extra context and observations go in later paragraphs, and only when they're genuinely useful.
+
+   **Internal check functions.** Each V1 check is its own single-purpose internal function. Its JSDoc points to the spec section that defines the rule, and states the rule's confidence as `verified`, `widely-reported` or `unconfident` (the spec's ✅, 🔶 and ❓). Source code doesn't use the spec's emoji.
+
+7. **Runtime.** The package needs `globalThis.crypto.subtle` (for V1). The README is to say: "Works in browsers and any runtime that ships `globalThis.crypto.subtle`, including Node >= 20, Deno, and Bun." `engines` is `"node": ">=20"`. The package doesn't use `Temporal` or `Date`.
 
 ---
 
@@ -63,7 +72,7 @@ R1 includes the earlier R2 (identify the package format) and R3 (identify the de
 function parseHeader(bytes: Uint8Array): [true, Header] | [false, ParseHeaderFailureReason[]]
 ```
 
-The parameter name is a placeholder. The function is synchronous.
+The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
 
 ### Return type
 
@@ -234,7 +243,7 @@ Decodes the parts of a package header that restrict who may use the package and 
 function parseRestrictions(bytes: Uint8Array): [true, Restrictions] | [false, ParseRestrictionsFailureReason[]]
 ```
 
-The parameter name is a placeholder. The function is synchronous.
+The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
 
 ### Return type
 
@@ -363,7 +372,7 @@ function parseConsoleCertificate(
 ): [true, ConsoleCertificate | null] | [false, ParseConsoleCertificateFailureReason[]]
 ```
 
-The parameter name is a placeholder. The function is synchronous.
+The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
 
 ### Return type
 
@@ -410,7 +419,7 @@ type ConsoleCertificate = {
 10. `ownerConsoleId` is an identifier: uppercase hex digits, no prefix, zero-padded to 10 digits.
 11. `consoleType.decoded` is `'devkit'` when `raw` is `0x01`, `'retail'` when `raw` is `0x02`, and `'unknown'` for any other value.
 12. `publicModulus` and `certificateSignature` are copies, not views of the input buffer.
-13. `certificateDate` is the field's ASCII text, as stored *(inferred: ending at the first `0x00` byte, as Velocity reads it)*. It is never parsed into a date, because its format is not known (§6.2, "The certificate date field").
+13. `certificateDate` is the field's ASCII text, as stored, ending at the first `0x00` byte (as Velocity reads it). It is never parsed into a date, because its format is not known (§6.2, "The certificate date field").
 14. `parseConsoleCertificate` doesn't verify the certificate or the package signature. It doesn't return the package signature at `0x1AC` either (see R51).
 
 ### Notes and references
@@ -434,7 +443,7 @@ Says whether a package header's signature is all zero bytes. An empty signature 
 function hasEmptySignature(bytes: Uint8Array): [true, boolean] | [false, HasEmptySignatureFailureReason[]]
 ```
 
-The parameter name is a placeholder. The function is synchronous.
+The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
 
 ### Return type
 
@@ -497,7 +506,7 @@ function equals(a: Uint8Array, b: Uint8Array):
   | [false, false, EqualsFailureReason[]]   // a pre-check failed: nothing compared
 ```
 
-The function is synchronous. Consumers can rename it on import (`import { equals as headersEqual }`) if `equals` would conflict.
+The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices. Consumers can rename it on import (`import { equals as headersEqual }`) if `equals` would conflict.
 
 The first element follows the same pattern as every other function: `true` means the comparison ran. The second element is the answer. The third holds the differences when the comparison ran, or the failure reason when it didn't.
 
@@ -568,7 +577,7 @@ function diff(a: Uint8Array, b: Uint8Array):
   | [false, DiffFailureReason[]]
 ```
 
-The function is synchronous. Consumers can rename it on import (`import { diff as diffHeaders }`).
+The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices. Consumers can rename it on import (`import { diff as diffHeaders }`).
 
 The result follows the same pattern as the parse functions. The first element says whether the comparison could run. On success, the second element is the field map. Whether the headers are wholly the same is found by checking that every value is `'same'`.
 
@@ -655,7 +664,7 @@ These are the same pre-check reasons every function returns. They don't say whic
 11. Thumbnail space is `0x4000` per thumbnail when `metadataVersion.effective` is 1, and `0x3D00` when it is 2.
 12. In metadata version 2, the `0x300` bytes freed from each thumbnail belong to the extra languages: `0x541A`–`0x5719` to `displayNames`, and `0x941A`–`0x9719` to `descriptions`.
 13. `certificate` exists only for `CON`, and `signaturePadding` only for `LIVE` and `PIRS`. `signature` exists for all three, but at different offsets and lengths.
-14. `mediaOrAvatarData` is compared in both metadata versions, because its bytes are part of the header either way *(inferred)*.
+14. `mediaOrAvatarData` is compared in both metadata versions, because its bytes are part of the header either way.
 
 ### Notes and references
 
@@ -673,74 +682,148 @@ These are the same pre-check reasons every function returns. They don't say whic
 
 Checks whether a package header follows the specification, and reports every problem it finds as a finding. It detects the package's format from the header. It is the only function in the package that checks the header's integrity, by recomputing its content ID with SHA-1, and so the only async one. It does no I/O apart from the hash, and never throws on bad input.
 
-**Most of V1's design is Open.** It's the subject of the planned findings session.
-
 ### Signature
 
 ```ts
-function verifyHeaderAsync(bytes: Uint8Array): Promise<VerifyResult>
+function verifyHeaderAsync(
+  bytes: Uint8Array,
+  options?: { strictMode?: boolean },
+): Promise<
+  | [true,  true,  Finding[]]              // verified: valid (may hold warnings and info)
+  | [true,  false, Finding[]]              // verified: not valid
+  | [false, false, VerifyFailureReason[]]  // a pre-check failed: nothing verified
+>
 ```
 
-The parameter name is a placeholder. `Async` is in the name because it is the only async function. No synchronous twin exists.
+The parameter names are placeholders. `Async` is in the name because it is the only async function. No synchronous twin exists. The result follows `equals` (R60): success, then the verdict, then the details.
+
+**JSDoc must state the bytes required:** the padded header. That is `0xA000` bytes when the header size stored at `0x340` is `0x971A`, and `0xB000` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices. This is more than any other function needs.
 
 ### Return type
 
-**Open.** Starting proposal:
+```ts
+type VerifyFailureReason =
+  | { kind: 'insufficient-bytes'; needed: number; got: number }
+  | { kind: 'not-a-package' }
+  | { kind: 'header-size-invalid'; declared: number }
+```
+
+These are the same pre-check reasons every function returns.
+
+Every finding has the same shape. Details specific to a check, such as a computed hash or a stored value, go in the `message`, not in extra fields.
 
 ```ts
 type Finding = {
-  code: string          // stable, e.g. 'header-size-unknown'
+  code: FindingCode                                    // a literal union of every code in the check table
   severity: 'error' | 'warning' | 'info'
-  specRef: string       // e.g. '§6.1'
-  offset?: number       // where in the header, when it applies
+  confidence: 'verified' | 'widely-reported' | 'unconfident'  // the spec's ✅, 🔶 and ❓ for the rule
+  specRef: string                                      // e.g. '§6.3'
+  field: FieldName                                     // the same keys as diff (R61)
+  message: string                                      // brief, human-readable English, with the details
 }
-type VerifyResult = { valid: boolean; findings: Finding[] }  // valid = no error findings
 ```
-
-Whether V1 also follows the result tuple pattern of the parse functions is part of this Open question.
 
 ### Behaviour
 
-**Decided**
+**Result**
 
-1. Returns a `Promise`. It is async because SHA-1 comes from `globalThis.crypto.subtle`, whose `digest` is async.
-2. Uses `globalThis.crypto.subtle` for SHA-1. The package bundles no crypto code.
-3. Takes no expected format. It reads the format from the volume type at `0x3A9`, as R1 does.
-4. Checks the content ID: the SHA-1 of the header from `0x344` up to the header size must equal the 20 bytes at `0x32C` (§6.3).
-5. Treats stored metadata versions 0, 1 and 2 (at `0x348`) as valid. Any other value is a warning, not an error.
-6. When a pre-check fails (too short, not a package, invalid header size), the function ends early and runs no other check.
-7. When it reports more than one finding, their order is deterministic, but not part of the contract and may change between versions.
+1. Returns `[true, valid, findings]` when the pre-checks pass. `findings` lists every finding, and may be empty.
+2. Without `strictMode` (the default), `valid` is `true` exactly when no finding has severity `'error'`.
+3. With `{ strictMode: true }`, `valid` is `true` exactly when no finding has severity `'error'` or `'warning'`.
+4. `'info'` findings never make `valid` `false`, even in strict mode. Any finding that isn't an error or a warning is `'info'`.
+5. Returns `[false, false, reasons]` when a pre-check fails. `reasons` then holds exactly one reason, and no check runs.
+6. When it reports more than one finding, their order is deterministic, but not part of the contract and may change between versions.
 
-**Open**
+**Pre-checks.** Run in this order. The first failure ends the function:
 
-8. The shape of findings and results (above).
-9. Whether severity follows the spec's confidence marks: breaking a ✅ rule is an error, breaking a 🔶 rule a warning.
-10. Whether findings carry an English `message`, or only codes.
-11. Whether every finding is collected, skipping checks that depend on one that failed. Collecting is proposed.
-12. How a pre-check failure is reported: as a finding, or as a separate outcome.
-13. Which checks it runs. Candidates:
+7. `insufficient-bytes` when `bytes` is shorter than 4 bytes.
+8. `not-a-package` when the first 4 bytes are not `CON `, `LIVE` or `PIRS`.
+9. `insufficient-bytes` when `bytes` is shorter than `0x344`.
+10. `header-size-invalid` when the value at `0x340` is neither `0x971A` nor `0xAD0E`.
+11. `insufficient-bytes` when `bytes` is shorter than the padded header: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header.
 
-    | Candidate check | Spec |
-    |---|---|
-    | magic is `CON `, `LIVE` or `PIRS` | §6.2 |
-    | header size is `0x971A` or `0xAD0E` | §6.1 |
-    | content ID matches (decided, item 4) | §6.3 |
-    | metadata version is 0, 1 or 2 (decided, item 5) | §6.1 |
-    | volume type is 0 or 1 | §6.4, §6.9 |
-    | volume descriptor length byte is `0x24` | §6.6, §6.7 |
-    | an STFS package has a data file count of 0 | §6.4 |
-    | an SVOD header file is exactly `0xB000` bytes (needs the whole file as input) | §3.2 |
-    | each thumbnail's declared size fits its space | §6.5 |
-    | each thumbnail starts with the PNG signature and its `IEND` chunk ends exactly at the declared size | §6.4 |
-    | the content type is a known one | §4.2 |
-    | `reserved` (`0x3B9`) and `signaturePadding` (`0x104`–`0x22B`) are zero (`info` at most: the spec doesn't require zeros) | §6.2, §6.4 |
-    | no unpaired surrogates in text | §6.5 |
-    | `contentSize` and `dataFilesSize` are at most `Number.MAX_SAFE_INTEGER` | §6.4 |
+**Checks**
+
+12. Runs every check and reports every finding. A check that depends on one that failed is skipped. For example, when a thumbnail's declared size is larger than its space, its PNG structure isn't checked.
+13. Takes no expected format. It reads the format from the volume type at `0x3A9`, as R1 does.
+14. Uses `globalThis.crypto.subtle` for SHA-1. The package bundles no crypto code.
+15. **Severity reflects how strictly the requirement is enforced,** by the console and by other projects (xenia and Velocity in particular), not the spec's confidence mark. Non-strict mode is permissive: a finding is an `'error'` only when we're quite certain the header is incorrect. Severities will need tuning by hand over time.
+16. Each check is its own internal, single-purpose function. Its JSDoc points to the spec section that defines the rule, and states the rule's confidence as `verified`, `widely-reported` or `unconfident`. Source code doesn't use the spec's emoji.
+
+17. Each `message` is brief English, and includes the values behind the finding. Long data is truncated, and the message says so: a hex value longer than 16 digits shows its first 6 and last 6 digits around `…`, followed by its full length, for example `1BD319…4E02C3 (40 digits, truncated)`.
+
+**The checks and their severities.** The list and severities are agreed, based on the severity chart below. They will be tuned by hand over time.
+
+| Code | Check | Proposed severity |
+|---|---|---|
+| `content-id-mismatch` | SHA-1 of `0x344` up to the padded end ≠ the content ID at `0x32C` (§6.3) | error |
+| `thumbnail-exceeds-space` | a declared thumbnail size > its space, `0x4000` or `0x3D00` (§6.5) | error |
+| `volume-type-unknown` | volume type at `0x3A9` is neither 0 nor 1 (§6.4, §6.9) | error |
+| `console-type-unknown` | a `CON` console type is neither `0x01` nor `0x02` (§6.2) | error |
+| `volume-descriptor-length` | the byte at `0x379` ≠ `0x24` (§6.6, §6.7) | warning |
+| `stfs-has-data-files` | an STFS package with a non-zero data file count (`0x39D`) or combined size (`0x3A1`) (§6.4) | warning |
+| `metadata-version-unknown` | the stored metadata version is not 0, 1 or 2 (§6.1) | warning |
+| `text-unpaired-surrogate` | malformed UTF-16 in any text field (§6.5) | warning |
+| `licensee-type-unknown` | a licence with an undocumented type (§6.3) | warning |
+| `value-exceeds-max-safe-integer` | `contentSize` or `dataFilesSize` > 2⁵³ − 1 (§6.4) | warning |
+| `thumbnail-not-png` | a non-empty thumbnail doesn't start with the PNG signature (§6.4) | info |
+| `thumbnail-truncated` | a PNG thumbnail's chunks don't end with `IEND` exactly at its declared size (§6.4) | info |
+| `content-type-unknown` | the content type isn't in the §4.2 list | info |
+| `transfer-flags-unknown-bits` | bit `0x02` or `0x01` is set (§6.4) | info |
+| `reserved-not-zero` | `0x3B9`–`0x3D8` not all zero (§6.4) | info |
+| `signature-padding-not-zero` | `LIVE`/`PIRS` padding `0x104`–`0x22B` not all zero (§6.2) | info |
+| `signature-empty` | an all-zero signature, which marks a tool-made package (§2.3, §6.2) | info |
+
+Dropped: "an SVOD header file is exactly `0xB000` bytes". V1 can't tell whether it was given the whole file or a prefix, so the check belongs in the future SVOD package.
+
+### Severity chart
+
+How other software treats each field, researched on 2026-10-13 from source code:
+- **Velocity:** `hetelek/Velocity` @ `cf0b84c`, mainly `XboxInternals/Stfs/XContentHeader.cpp` (`readMetadata`).
+- **xenia:** `xenia-canary` @ `2372a54`, mainly `kernel/xam/xcontent/`, with upstream `xenia-project/xenia` @ `95a5c3e` where it differs.
+- **Others:**
+  - rom-properties (RP) @ `75fb203`
+  - py360 @ `8fb79c8`
+  - acceleration (ACC) @ `e7a6851`
+  - emoose's `Xbox360Container.bt` @ `5f85b9e`
+  - iso2god-rs @ `76207d7`
+  - Iso2God (C#, decompiled) @ `09a6edf`
+  - XeBuild's `iso2svod` and `su_check` @ `d5a4a94`
+- **Console:** Free60, and the xeBuild, XeUnshackle and FreeMyXe kernel patch sources.
+
+"Rejects" means the software refuses to open or mount the package.
+
+| Code | Velocity | xenia | Other tools | Console | Basis for the severity |
+|---|---|---|---|---|---|
+| `content-id-mismatch` | Never verifies. Recomputes it on save over the same range we use (`0x344` to the padded end). | Never reads it. No SHA-1 or RSA code. | No reader checks it. Every GOD writer computes it over the same range. XeBuild's `su_check` **rejects** a mismatch. | Assumed to be checked; no primary source. | Every one of 772 real packages matches, and every writer gets it right. A mismatch means the header changed without being rehashed. |
+| `thumbnail-exceeds-space` | No bound. Reads past the space; a huge size can crash it. | Clamps the thumbnail. The title thumbnail is unclamped and can read out of bounds. | `iso2svod` refuses icons over `0x3D00`. ACC can panic. | Not found. | Undefined behaviour in two major tools. `parseHeader` can't represent it either. |
+| `volume-type-unknown` | **Rejects** (`fileSystem > 1`). | Fails to mount (upstream logs "Unknown XContent volume type"). | ACC rejects or panics. Writers always write 1 for SVOD. | Not found. | Rejected by both major tools. |
+| `console-type-unknown` | **Rejects** ("Invalid console type"; checks `value & 3`). | Never reads it. | RP rejects: it doesn't detect the package as STFS. | Not found. | Rejected by Velocity and RP. |
+| `metadata-version-unknown` | Ignored in release builds. Only debug builds reject a value other than 2. | Not validated. `>= 2` enables version 2. Note: xenia caps thumbnails at `0x4000` only when the value is exactly 1, so a stored 0 gets `0x3D00`, unlike our rule. | RP clamps (`< 2` is version 1). Writers always write 2. | Not found. | Lenient everywhere: warning. |
+| `volume-descriptor-length` | Never checks. Writes `0x24` on save, which corrects it. | Has a check, `is_valid()`, that is never called. | No reader checks it. Every writer writes `0x24`. | Not found. | Universally written, never enforced. |
+| `stfs-has-data-files` | Ignored and kept. | Canary ignores it. **Upstream** looks for a `.data` folder when the count is above 1, and fails to mount without one. | Not checked. | Not found. | Only upstream xenia acts on it. |
+| `thumbnail-not-png` | Ignored: shows no image. | Passed through. The install dialog shows no icon. | RP shows no icon. **iso2god-rs writes zero-filled thumbnails, and Iso2God writes 20 zero bytes when there's no icon.** Consoles accept both. | Accepted (tool output loads). | Harmless and common in tool-made GODs: info, so strict mode doesn't fail them. |
+| `thumbnail-truncated` | Not checked. | Not checked. | RP shows no icon. | Not found. | As above. |
+| `text-unpaired-surrogate` | Kept as is. | Kept in UTF-16. Converting to UTF-8 probably throws (inferred, not traced). | ACC's old parser panics; its new one replaces. Writers produce valid UTF-16. | Not found. | Malformed text that can break some tools. The package itself likely works. |
+| `licensee-type-unknown` | **Rejects** ("Invalid license type"). It uses the same 9 types as the spec. | Ignores licences entirely. | ACC's old parser panics; its new one keeps the raw value. | Not found. | Velocity rejects it, but nothing shows the console does. Undocumented, not proven invalid. |
+| `value-exceeds-max-safe-integer` | Stored as 64-bit, unchecked. | Content size is used for the disk-space check, unchecked. | 64-bit, unchecked. | n/a | Valid in the format; it's only our own representation limit. |
+| `content-type-unknown` | Accepted. Shows "Unknown". | Accepted, except 0 (`kInvalid`), which content listing rejects. | RP shows "Unknown". ACC's new parser rejects. | Not found. | Accepted by both major tools. |
+| `transfer-flags-unknown-bits` | Accepted. Labelled "Unknown" and kept. | Never read. | Read for display. Writers write 0. | Free60 lists the bits as "None". | Accepted everywhere. |
+| `reserved-not-zero` | Never read; kept on save. | Never read. | Never read. Writers write zeros. | Not found. | Ignored everywhere. |
+| `signature-padding-not-zero` | Never read. | Never read. | RP doesn't detect it as `LIVE`/`PIRS` (to avoid confusion with a Nintendo DS format, not for format reasons). | Not found. | Ignored by all but one, for an unrelated reason. |
+| `signature-empty` | No RSA check anywhere. | No RSA check. | Every GOD writer writes an all-zero signature. | **A stock console rejects it; soft-modded consoles patch out the check** (xeBuild, XeUnshackle, FreeMyXe). | Normal for tool-made packages on modded consoles. |
+
+**Caveats from the research**
+
+- **Software leniency isn't console behaviour.** xenia loads unsigned and modded content by design, so "xenia ignores X" doesn't mean "the console ignores X". Apart from signature checks, the console's behaviour is almost entirely undocumented.
+- **Layout disagreement:** rom-properties and Free60's version 2 table place a Series ID at `0x3B1`. emoose and ACC put the type-specific data at `0x3D9`, as the spec does. The spec's reserved range (`0x3B9`–`0x3D8`) matches emoose.
+- **Iso2God quirk:** iso2god-rs and Iso2God write the data file count as a little-endian `u32` at `0x3A0`. That equals the big-endian value at `0x39D` only for counts below 256.
 
 ### Notes and references
 
-- **Spec:** header overview and metadata versions §6.1; magic and signature §6.2; content ID §6.3; metadata §6.4; text and thumbnails §6.5; identifying a package §6.9; confidence marks at the top of the spec.
+- **Spec:** header overview, padding and metadata versions §6.1; magic and signature §6.2; content ID §6.3; metadata §6.4; text and thumbnails §6.5; identifying a package §6.9; confidence marks at the top of the spec.
+- **Why V1 needs the padding:** the content ID is the SHA-1 of `0x344` up to the end of the padded header, not up to the header size (§6.3). This was confirmed on 2026-10-13 against all 772 real packages available (591 on the USB drive, 181 in the local copy), of every magic and both header sizes. Hashing only up to the header size matched none.
 - **Why the content ID check is kept:** it's the only check that catches corruption or naive edits inside the metadata. Every other check only asks whether values are plausible.
-- **Runtime requirements:** `globalThis.crypto.subtle` exists in browsers (in secure contexts only: https or localhost), Node 20+, Deno and Bun. The package's `engines` field says `"node": ">=20"`. Its README is to say: "Works in browsers and any runtime that ships `globalThis.crypto.subtle`, including Node >= 20, Deno, and Bun."
+- **Runtime requirements:** `globalThis.crypto.subtle` exists in browsers (in secure contexts only: https or localhost), Node 20+, Deno and Bun. The package's `engines` field says `"node": ">=20"`.
 - **Relationship to the parse functions:** the parse functions report what's there, and fail only when a value can't be represented truthfully. V1 judges whether what's there is acceptable.
 - **What V1 can't catch:** a thumbnail that spilled into the next field while declaring a size that fits. The PNG check catches most such cases (a cut-off image), and in metadata version 1, a spill into the title thumbnail also breaks its PNG signature. A spill into version 2's extra language block can't be detected reliably.
