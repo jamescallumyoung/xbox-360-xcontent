@@ -51,3 +51,25 @@ export const MEDIA_OR_AVATAR_DATA_LENGTH = 0x24
 /** Installer metadata: from 0x971A to the end of a 0xAD0E header (§6.1). */
 export const INSTALLER_METADATA_OFFSET = 0x971a
 export const INSTALLER_METADATA_LENGTH = 0x15f4 // 0xAD0E - 0x971A
+
+/** Display names and descriptions: 9 slots of 0x100 bytes, plus 3 more in metadata version 2 (§6.5). */
+export const LANGUAGE_SLOT_LENGTH = 0x100
+export const BASE_LANGUAGE_SLOTS = 9
+export const EXTRA_LANGUAGE_SLOTS = 3
+export const DISPLAY_NAMES_OFFSET = 0x411
+export const DESCRIPTIONS_OFFSET = 0xd11
+export const EXTRA_DISPLAY_NAMES_OFFSET = 0x541a
+export const EXTRA_DESCRIPTIONS_OFFSET = 0x941a
+
+/** Publisher name and title name: 0x80 bytes each (§6.4). */
+export const PUBLISHER_NAME_OFFSET = 0x1611
+export const TITLE_NAME_OFFSET = 0x1691
+export const NAME_FIELD_LENGTH = 0x80
+
+/** Thumbnails: a 4-byte size, then the image in its space (§6.4, §6.5). */
+export const THUMBNAIL_SIZE_OFFSET = 0x1712
+export const TITLE_THUMBNAIL_SIZE_OFFSET = 0x1716
+export const THUMBNAIL_OFFSET = 0x171a
+export const TITLE_THUMBNAIL_OFFSET = 0x571a
+export const THUMBNAIL_SPACE_V1 = 0x4000
+export const THUMBNAIL_SPACE_V2 = 0x3d00
