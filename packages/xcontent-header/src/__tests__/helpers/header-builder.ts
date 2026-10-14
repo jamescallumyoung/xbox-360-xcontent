@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 // A test-only builder for synthetic package headers, for edge cases the real
 // fixtures don't cover.
 //
-// It deliberately uses literal offsets copied from the spec (xcontent-spec2.md
+// It deliberately uses literal offsets copied from the spec (docs/xcontent-specification.md
 // §6), and never imports the package's own layout constants. A wrong constant in
 // the package then can't be confirmed by its own copy here.
 

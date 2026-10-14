@@ -2,25 +2,25 @@
 
 One design per public function of `xcontent-header`. Each section stands on its own: it repeats every convention it relies on, so it can be read, reviewed or implemented without the others. The package-wide rules below are also repeated in each section where they apply.
 
-- **Format reference:** [xcontent-spec2.md](xcontent-spec2.md). "§" means a section of it.
+- **Format reference:** [xcontent-specification.md](../../../docs/xcontent-specification.md). "§" means a section of it.
 - **Decision history and rationale:** [xcontent-header-design-decision-record.md](xcontent-header-design-decision-record.md).
 - **Status:** in design, no code yet. Last updated 2026-10-13.
 
 Every statement in this document is one of:
 
 - **Decided:** agreed during design. No marker.
-- **Inferred:** follows from decisions already made, but was never discussed on its own. Marked *(inferred)*. Confirm before implementing.
+- **Inferred:** follows from decisions already made, but was never discussed on its own. Marked _(inferred)_. Confirm before implementing.
 - **Open:** not decided. Marked **Open**.
 
-| ID | Function | Section |
-|---|---|---|
-| R1 | `parseHeader` | [R1](#r1-parseheader) |
-| R4 | `parseRestrictions` | [R4](#r4-parserestrictions) |
+| ID  | Function                  | Section                             |
+| --- | ------------------------- | ----------------------------------- |
+| R1  | `parseHeader`             | [R1](#r1-parseheader)               |
+| R4  | `parseRestrictions`       | [R4](#r4-parserestrictions)         |
 | R50 | `parseConsoleCertificate` | [R50](#r50-parseconsolecertificate) |
-| R51 | `hasEmptySignature` | [R51](#r51-hasemptysignature) |
-| R60 | `equals` | [R60](#r60-equals) |
-| R61 | `diff` | [R61](#r61-diff) |
-| V1 | `verifyHeaderAsync` | [V1](#v1-verifyheaderasync) |
+| R51 | `hasEmptySignature`       | [R51](#r51-hasemptysignature)       |
+| R60 | `equals`                  | [R60](#r60-equals)                  |
+| R61 | `diff`                    | [R61](#r61-diff)                    |
+| V1  | `verifyHeaderAsync`       | [V1](#v1-verifyheaderasync)         |
 
 ---
 
@@ -31,8 +31,12 @@ These rules apply to every function. They belong in the package's API documentat
 1. **Result tuples.** Every synchronous function returns a tuple whose first element says whether it succeeded. `true` always means success. R1, R4, R50, R51 and R61 return two elements. When the first is `true`, the second element is the result. When it's `false`, the second element is a list of failure reasons. Callers check the first element to know what the second holds:
 
    ```ts
-   const [ok, value] = parseHeader(bytes)
-   if (ok) { /* value is a Header */ } else { /* value is a list of failure reasons */ }
+   const [ok, value] = parseHeader(bytes);
+   if (ok) {
+     /* value is a Header */
+   } else {
+     /* value is a list of failure reasons */
+   }
    ```
 
    TypeScript narrows `value` from `ok` when both are declared with `const`.
@@ -85,7 +89,7 @@ R1 includes the earlier R2 (identify the package format) and R3 (identify the de
 ### Signature
 
 ```ts
-function parseHeader(bytes: Uint8Array): [true, Header] | [false, ParseHeaderFailureReason[]]
+function parseHeader(bytes: Uint8Array): [true, Header] | [false, ParseHeaderFailureReason[]];
 ```
 
 The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
@@ -94,11 +98,11 @@ The parameter name is a placeholder. The function is synchronous. JSDoc must sta
 
 ```ts
 type ParseHeaderFailureReason =
-  | { kind: 'insufficient-bytes'; needed: number; got: number }        // shared with R4, R50 and R51
+  | { kind: 'insufficient-bytes'; needed: number; got: number } // shared with R4, R50 and R51
   | { kind: 'not-a-package' }
   | { kind: 'header-size-invalid'; declared: number }
   | { kind: 'value-exceeds-max-safe-integer'; field: 'contentSize' | 'dataFilesSize'; raw: string }
-  | { kind: 'value-out-of-range'; field: 'thumbnail' | 'titleThumbnail'; declaredSize: number; availableSpace: number }
+  | { kind: 'value-out-of-range'; field: 'thumbnail' | 'titleThumbnail'; declaredSize: number; availableSpace: number };
 ```
 
 - `raw` is `0x` followed by 16 uppercase hex digits.
@@ -106,45 +110,53 @@ type ParseHeaderFailureReason =
 
 `Header` holds these properties:
 
-| Property | Type | Offset | Notes |
-|---|---|---|---|
-| `declaredSigning` | `'CON' \| 'LIVE' \| 'PIRS'` | `0x000` | The magic `CON ` has a trailing space in the file; the value `'CON'` doesn't. |
-| `contentId` | `string`, 40 hex digits | `0x32C` | |
-| `headerSize` | `number` | `0x340` | Always `0x971A` or `0xAD0E` in a success result. |
-| `declaredContentType` | `number` | `0x344` | For example `28672` (`0x00007000`). |
-| `metadataVersion` | `{ declared: number; effective: 1 \| 2 }` | `0x348` | |
-| `contentSize` | `number` | `0x34C` | 8-byte field. |
-| `mediaId` | `string`, 8 hex digits | `0x354` | |
-| `version` | `number` | `0x358` | |
-| `baseVersion` | `number` | `0x35C` | |
-| `declaredTitleId` | `string`, 8 hex digits | `0x360` | |
-| `platform` | `number` | `0x364` | |
-| `executableType` | `number` | `0x365` | |
-| `discNumber` | `number` | `0x366` | |
-| `discCount` | `number` | `0x367` | |
-| `saveGameId` | `string`, 8 hex digits | `0x368` | |
-| `dataFileCount` | `number` | `0x39D` | |
-| `dataFilesSize` | `number` | `0x3A1` | 8-byte field. The combined size of an SVOD package's data files. |
-| `format` | `{ raw: number; decoded: 'stfs' \| 'svod' \| 'unknown' }` | `0x3A9` | |
-| `onlineCreator` | `string`, 16 hex digits | `0x3AD` | |
-| `category` | `number` | `0x3B5` | |
-| `mediaOrAvatarData` | `Uint8Array \| null` | `0x3D9` | `0x24` bytes, used only in metadata version 2. |
-| `displayNames` | `(string \| null)[]` | `0x411`, plus `0x541A` in version 2 | 9 or 12 entries. |
-| `descriptions` | `(string \| null)[]` | `0xD11`, plus `0x941A` in version 2 | 9 or 12 entries. |
-| `publisherName` | `string \| null` | `0x1611` | |
-| `titleName` | `string \| null` | `0x1691` | |
-| `thumbnail` | `Uint8Array \| null` | size `0x1712`, image `0x171A` | |
-| `titleThumbnail` | `Uint8Array \| null` | size `0x1716`, image `0x571A` | |
-| `installerMetadata` | `Uint8Array \| null` | `0x971A` | `0x15F4` bytes, only when the header size is `0xAD0E`. |
+| Property              | Type                                                      | Offset                              | Notes                                                                         |
+| --------------------- | --------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------- |
+| `declaredSigning`     | `'CON' \| 'LIVE' \| 'PIRS'`                               | `0x000`                             | The magic `CON ` has a trailing space in the file; the value `'CON'` doesn't. |
+| `contentId`           | `string`, 40 hex digits                                   | `0x32C`                             |                                                                               |
+| `headerSize`          | `number`                                                  | `0x340`                             | Always `0x971A` or `0xAD0E` in a success result.                              |
+| `declaredContentType` | `number`                                                  | `0x344`                             | For example `28672` (`0x00007000`).                                           |
+| `metadataVersion`     | `{ declared: number; effective: 1 \| 2 }`                 | `0x348`                             |                                                                               |
+| `contentSize`         | `number`                                                  | `0x34C`                             | 8-byte field.                                                                 |
+| `mediaId`             | `string`, 8 hex digits                                    | `0x354`                             |                                                                               |
+| `version`             | `number`                                                  | `0x358`                             |                                                                               |
+| `baseVersion`         | `number`                                                  | `0x35C`                             |                                                                               |
+| `declaredTitleId`     | `string`, 8 hex digits                                    | `0x360`                             |                                                                               |
+| `platform`            | `number`                                                  | `0x364`                             |                                                                               |
+| `executableType`      | `number`                                                  | `0x365`                             |                                                                               |
+| `discNumber`          | `number`                                                  | `0x366`                             |                                                                               |
+| `discCount`           | `number`                                                  | `0x367`                             |                                                                               |
+| `saveGameId`          | `string`, 8 hex digits                                    | `0x368`                             |                                                                               |
+| `dataFileCount`       | `number`                                                  | `0x39D`                             |                                                                               |
+| `dataFilesSize`       | `number`                                                  | `0x3A1`                             | 8-byte field. The combined size of an SVOD package's data files.              |
+| `format`              | `{ raw: number; decoded: 'stfs' \| 'svod' \| 'unknown' }` | `0x3A9`                             |                                                                               |
+| `onlineCreator`       | `string`, 16 hex digits                                   | `0x3AD`                             |                                                                               |
+| `category`            | `number`                                                  | `0x3B5`                             |                                                                               |
+| `mediaOrAvatarData`   | `Uint8Array \| null`                                      | `0x3D9`                             | `0x24` bytes, used only in metadata version 2.                                |
+| `displayNames`        | `(string \| null)[]`                                      | `0x411`, plus `0x541A` in version 2 | 9 or 12 entries.                                                              |
+| `descriptions`        | `(string \| null)[]`                                      | `0xD11`, plus `0x941A` in version 2 | 9 or 12 entries.                                                              |
+| `publisherName`       | `string \| null`                                          | `0x1611`                            |                                                                               |
+| `titleName`           | `string \| null`                                          | `0x1691`                            |                                                                               |
+| `thumbnail`           | `Uint8Array \| null`                                      | size `0x1712`, image `0x171A`       |                                                                               |
+| `titleThumbnail`      | `Uint8Array \| null`                                      | size `0x1716`, image `0x571A`       |                                                                               |
+| `installerMetadata`   | `Uint8Array \| null`                                      | `0x971A`                            | `0x15F4` bytes, only when the header size is `0xAD0E`.                        |
 
 The package also ships `LanguageSlot`, which maps languages to indices in `displayNames` and `descriptions`:
 
 ```ts
 export const LanguageSlot = {
-  English: 0, Japanese: 1, German: 2, French: 3, Spanish: 4,
-  Italian: 5, Korean: 6, TraditionalChinese: 7, Portuguese: 8,
-  Polish: 10, Russian: 11,
-} as const
+  English: 0,
+  Japanese: 1,
+  German: 2,
+  French: 3,
+  Spanish: 4,
+  Italian: 5,
+  Korean: 6,
+  TraditionalChinese: 7,
+  Portuguese: 8,
+  Polish: 10,
+  Russian: 11,
+} as const;
 ```
 
 ### Behaviour
@@ -208,7 +220,7 @@ export const LanguageSlot = {
 28. A string ends at the first U+0000 character. When a field holds none, the string uses the field's full width: 128 code units for a display name or description slot (`0x100` bytes), and 64 for `publisherName` and `titleName` (`0x80` bytes). U+0000 only comes from a `00 00` code unit, so a character such as "0" (`00 30`) never ends a string.
 29. A field whose first code unit is `0x0000` is `null`.
 30. Unpaired surrogates, the only way UTF-16 can be malformed, are replaced with U+FFFD (`�`). Strings returned by `parseHeader` are therefore always well-formed. The exact value of a broken code unit is not kept.
-31. Text is never repaired. A string stored as UTF-8 bytes inside UTF-16BE (the *South Park* fixture, §6.5) is returned exactly as decoded.
+31. Text is never repaired. A string stored as UTF-8 bytes inside UTF-16BE (the _South Park_ fixture, §6.5) is returned exactly as decoded.
 
 **Language slots**
 
@@ -256,7 +268,7 @@ Decodes the parts of a package header that restrict who may use the package and 
 ### Signature
 
 ```ts
-function parseRestrictions(bytes: Uint8Array): [true, Restrictions] | [false, ParseRestrictionsFailureReason[]]
+function parseRestrictions(bytes: Uint8Array): [true, Restrictions] | [false, ParseRestrictionsFailureReason[]];
 ```
 
 The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
@@ -265,40 +277,47 @@ The parameter name is a placeholder. The function is synchronous. JSDoc must sta
 
 ```ts
 type ParseRestrictionsFailureReason =
-  | { kind: 'insufficient-bytes'; needed: number; got: number }        // shared with R1, R50 and R51
+  | { kind: 'insufficient-bytes'; needed: number; got: number } // shared with R1, R50 and R51
   | { kind: 'not-a-package' }
-  | { kind: 'header-size-invalid'; declared: number }
+  | { kind: 'header-size-invalid'; declared: number };
 
 type Restrictions = {
-  licences: Licence[]                // always 16 entries
+  licences: Licence[]; // always 16 entries
   transferFlags: {
-    raw: number
+    raw: number;
     decoded: {
-      canMoveToProfile: boolean        // 0x80
-      canMoveToDevice: boolean         // 0x40
-      moveOnly: boolean                // 0x20: can be moved but not copied
-      kinectEnabled: boolean           // 0x10
-      networkStorageDisabled: boolean  // 0x08
-      deepLinksSupported: boolean      // 0x04
-    }
-  }
-  creatorConsoleId: string           // 10 hex digits
-  profileId: string                  // 16 hex digits
-  deviceId: string                   // 40 hex digits
-}
+      canMoveToProfile: boolean; // 0x80
+      canMoveToDevice: boolean; // 0x40
+      moveOnly: boolean; // 0x20: can be moved but not copied
+      kinectEnabled: boolean; // 0x10
+      networkStorageDisabled: boolean; // 0x08
+      deepLinksSupported: boolean; // 0x04
+    };
+  };
+  creatorConsoleId: string; // 10 hex digits
+  profileId: string; // 16 hex digits
+  deviceId: string; // 40 hex digits
+};
 
 type Licence = {
-  index: number                      // 0–15
-  licenseeType: { raw: number; decoded: LicenseeTypeName }
-  licenseeData: string               // 12 hex digits
-  bits: number
-  flags: number
-}
+  index: number; // 0–15
+  licenseeType: { raw: number; decoded: LicenseeTypeName };
+  licenseeData: string; // 12 hex digits
+  bits: number;
+  flags: number;
+};
 
 type LicenseeTypeName =
-  | 'unrestricted' | 'xboxLiveAccount' | 'windowsLiveAccount' | 'console'
-  | 'mediaFlags' | 'keyvaultPrivilege' | 'hypervisorFlags' | 'userPrivilege'
-  | 'unused' | 'unknown'
+  | 'unrestricted'
+  | 'xboxLiveAccount'
+  | 'windowsLiveAccount'
+  | 'console'
+  | 'mediaFlags'
+  | 'keyvaultPrivilege'
+  | 'hypervisorFlags'
+  | 'userPrivilege'
+  | 'unused'
+  | 'unknown';
 ```
 
 `'unused'` and `'unknown'` are deliberately separate names (see Notes).
@@ -326,22 +345,22 @@ type LicenseeTypeName =
 **Licences** (`0x22C`, 16 entries of `0x10` bytes, §6.3)
 
 10. `licences` always has 16 entries, in header order, including unused ones. `index` is the entry's position, 0–15.
-11. Entry *n* starts at `0x22C + n × 0x10`.
+11. Entry _n_ starts at `0x22C + n × 0x10`.
 12. `licenseeType.raw` is the top 16 bits of the entry's 8-byte licensee ID, as a `number` (for example `61440` for `0xF000`).
 13. `licenseeType.decoded` maps `raw` as follows:
 
-    | `raw` | `decoded` |
-    |---|---|
-    | `0xFFFF` | `'unrestricted'` (anyone) |
-    | `0x0009` | `'xboxLiveAccount'` (XUID) |
-    | `0x0003` | `'windowsLiveAccount'` |
-    | `0xF000` | `'console'` |
-    | `0xE000` | `'mediaFlags'` |
-    | `0xD000` | `'keyvaultPrivilege'` |
-    | `0xC000` | `'hypervisorFlags'` |
-    | `0xB000` | `'userPrivilege'` |
-    | `0x0000` | `'unused'` |
-    | anything else | `'unknown'` |
+    | `raw`         | `decoded`                  |
+    | ------------- | -------------------------- |
+    | `0xFFFF`      | `'unrestricted'` (anyone)  |
+    | `0x0009`      | `'xboxLiveAccount'` (XUID) |
+    | `0x0003`      | `'windowsLiveAccount'`     |
+    | `0xF000`      | `'console'`                |
+    | `0xE000`      | `'mediaFlags'`             |
+    | `0xD000`      | `'keyvaultPrivilege'`      |
+    | `0xC000`      | `'hypervisorFlags'`        |
+    | `0xB000`      | `'userPrivilege'`          |
+    | `0x0000`      | `'unused'`                 |
+    | anything else | `'unknown'`                |
 
 14. `licenseeData` is the low 48 bits of the licensee ID, as 12 uppercase hex digits with no prefix.
 15. `bits` is the 4-byte value at entry offset `0x8`, as a `number`. Its meaning isn't decoded.
@@ -385,7 +404,7 @@ Decodes the console certificate that a `CON` package carries in its header: the 
 ```ts
 function parseConsoleCertificate(
   bytes: Uint8Array,
-): [true, ConsoleCertificate | null] | [false, ParseConsoleCertificateFailureReason[]]
+): [true, ConsoleCertificate | null] | [false, ParseConsoleCertificateFailureReason[]];
 ```
 
 The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
@@ -394,20 +413,20 @@ The parameter name is a placeholder. The function is synchronous. JSDoc must sta
 
 ```ts
 type ParseConsoleCertificateFailureReason =
-  | { kind: 'insufficient-bytes'; needed: number; got: number }        // shared with R1, R4 and R51
+  | { kind: 'insufficient-bytes'; needed: number; got: number } // shared with R1, R4 and R51
   | { kind: 'not-a-package' }
-  | { kind: 'header-size-invalid'; declared: number }
+  | { kind: 'header-size-invalid'; declared: number };
 
 type ConsoleCertificate = {
-  publicKeyCertificateSize: number                                     // 0x004, 2 bytes
-  ownerConsoleId: string                                               // 0x006, 5 bytes → 10 hex digits
-  consolePartNumber: string                                            // 0x00B, 0x14 bytes, text
-  consoleType: { raw: number; decoded: 'devkit' | 'retail' | 'unknown' }  // 0x01F, 1 byte
-  certificateDate: string                                              // 0x020, 8 bytes, ASCII text
-  publicExponent: number                                               // 0x028, 4 bytes
-  publicModulus: Uint8Array                                            // 0x02C, 0x80 bytes (copy)
-  certificateSignature: Uint8Array                                     // 0x0AC, 0x100 bytes (copy)
-}
+  publicKeyCertificateSize: number; // 0x004, 2 bytes
+  ownerConsoleId: string; // 0x006, 5 bytes → 10 hex digits
+  consolePartNumber: string; // 0x00B, 0x14 bytes, text
+  consoleType: { raw: number; decoded: 'devkit' | 'retail' | 'unknown' }; // 0x01F, 1 byte
+  certificateDate: string; // 0x020, 8 bytes, ASCII text
+  publicExponent: number; // 0x028, 4 bytes
+  publicModulus: Uint8Array; // 0x02C, 0x80 bytes (copy)
+  certificateSignature: Uint8Array; // 0x0AC, 0x100 bytes (copy)
+};
 ```
 
 ### Behaviour
@@ -442,7 +461,7 @@ type ConsoleCertificate = {
 
 - **Spec:** magic and signature §6.2; signing in plain terms §2.2; genuine and fake signatures §2.3.
 - **Why separate from R1:** R1 answers "what is this package?". The certificate is needed less often, and applies only to `CON` packages.
-- **Not the creator console ID:** the certificate's `ownerConsoleId` (`0x006`) identifies the console that *signed* the package. The metadata's console ID at `0x36C` (R4's `creatorConsoleId`) identifies the console that *created* it.
+- **Not the creator console ID:** the certificate's `ownerConsoleId` (`0x006`) identifies the console that _signed_ the package. The metadata's console ID at `0x36C` (R4's `creatorConsoleId`) identifies the console that _created_ it.
 - **Why the certificate date stays a string** (§6.2, "The certificate date field"): it's 8 bytes of ASCII with no documented format. Real packages hold values such as `11-06-09` and `01-12-10`, which could be month-day-year or day-month-year, with a two-digit year and no time zone. Parsing it into a date would be a guess, and nothing suggests the console enforces any format.
 
 ---
@@ -456,7 +475,7 @@ Says whether a package header's signature is all zero bytes. An empty signature 
 ### Signature
 
 ```ts
-function hasEmptySignature(bytes: Uint8Array): [true, boolean] | [false, HasEmptySignatureFailureReason[]]
+function hasEmptySignature(bytes: Uint8Array): [true, boolean] | [false, HasEmptySignatureFailureReason[]];
 ```
 
 The parameter name is a placeholder. The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices.
@@ -465,9 +484,9 @@ The parameter name is a placeholder. The function is synchronous. JSDoc must sta
 
 ```ts
 type HasEmptySignatureFailureReason =
-  | { kind: 'insufficient-bytes'; needed: number; got: number }        // shared with R1, R4 and R50
+  | { kind: 'insufficient-bytes'; needed: number; got: number } // shared with R1, R4 and R50
   | { kind: 'not-a-package' }
-  | { kind: 'header-size-invalid'; declared: number }
+  | { kind: 'header-size-invalid'; declared: number };
 ```
 
 On success, the second element is the answer: `true` when the signature is empty.
@@ -511,15 +530,18 @@ On success, the second element is the answer: `true` when the signature is empty
 
 ### Summary
 
-Says whether two package headers are byte-for-byte identical, from `0x000` up to each header's size, and lists every reason when they aren't. It never says *where* or *which fields* differ: that's `diff` (R61). It does no I/O and never throws on bad input.
+Says whether two package headers are byte-for-byte identical, from `0x000` up to each header's size, and lists every reason when they aren't. It never says _where_ or _which fields_ differ: that's `diff` (R61). It does no I/O and never throws on bad input.
 
 ### Signature
 
 ```ts
-function equals(a: Uint8Array, b: Uint8Array):
-  | [true,  true,  []]                      // compared: identical
-  | [true,  false, EqualsDifference[]]      // compared: not identical, with every reason
-  | [false, false, EqualsFailureReason[]]   // a pre-check failed: nothing compared
+function equals(
+  a: Uint8Array,
+  b: Uint8Array,
+):
+  | [true, true, []] // compared: identical
+  | [true, false, EqualsDifference[]] // compared: not identical, with every reason
+  | [false, false, EqualsFailureReason[]]; // a pre-check failed: nothing compared
 ```
 
 The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices. Consumers can rename it on import (`import { equals as headersEqual }`) if `equals` would conflict.
@@ -529,14 +551,12 @@ The first element follows the same pattern as every other function: `true` means
 ### Return type
 
 ```ts
-type EqualsDifference =
-  | { kind: 'header-size-differs'; a: number; b: number }
-  | { kind: 'bytes-differ' }
+type EqualsDifference = { kind: 'header-size-differs'; a: number; b: number } | { kind: 'bytes-differ' };
 
 type EqualsFailureReason =
   | { kind: 'insufficient-bytes'; needed: number; got: number }
   | { kind: 'not-a-package' }
-  | { kind: 'header-size-invalid'; declared: number }
+  | { kind: 'header-size-invalid'; declared: number };
 ```
 
 `EqualsFailureReason` holds the same pre-check reasons every function returns. They don't say which buffer failed.
@@ -588,9 +608,10 @@ Compares two package headers field by field, and reports each field as `'same'` 
 ### Signature
 
 ```ts
-function diff(a: Uint8Array, b: Uint8Array):
-  | [true, Record<FieldName, 'same' | 'different'>]
-  | [false, DiffFailureReason[]]
+function diff(
+  a: Uint8Array,
+  b: Uint8Array,
+): [true, Record<FieldName, 'same' | 'different'>] | [false, DiffFailureReason[]];
 ```
 
 The function is synchronous. JSDoc must state the bytes required: from `0x000` up to the header size stored at `0x340`. That is `0x971A` bytes when the stored value is `0x971A`, and `0xAD0E` bytes when it is `0xAD0E`. Reading `0xB000` bytes always suffices. Consumers can rename it on import (`import { diff as diffHeaders }`).
@@ -605,7 +626,7 @@ The result follows the same pattern as the parse functions. The first element sa
 type DiffFailureReason =
   | { kind: 'insufficient-bytes'; needed: number; got: number }
   | { kind: 'not-a-package' }
-  | { kind: 'header-size-invalid'; declared: number }
+  | { kind: 'header-size-invalid'; declared: number };
 ```
 
 These are the same pre-check reasons every function returns. They don't say which buffer failed.
@@ -635,47 +656,47 @@ These are the same pre-check reasons every function returns. They don't say whic
 
 **Fields.** Each key covers a range of raw bytes. Together, the ranges cover every byte from `0x000` up to the header size, with no gaps or overlaps. There is one key per top-level property, named after the matching parse result property where one exists.
 
-| Offset | Size | Key | Values parsed by |
-|---|---|---|---|
-| `0x000` | 4 | `declaredSigning` | R1 |
-| *`CON`:* `0x004` | `0x1A8` | `certificate` | R50 |
-| *`CON`:* `0x1AC` | `0x80` | `signature` | (R51) |
-| *`LIVE`/`PIRS`:* `0x004` | `0x100` | `signature` | (R51) |
-| *`LIVE`/`PIRS`:* `0x104` | `0x128` | `signaturePadding` | not exposed |
-| `0x22C` | `0x100` | `licences` | R4 |
-| `0x32C` | `0x14` | `contentId` | R1 |
-| `0x340` | 4 | `headerSize` | R1 |
-| `0x344` | 4 | `declaredContentType` | R1 |
-| `0x348` | 4 | `metadataVersion` | R1 |
-| `0x34C` | 8 | `contentSize` | R1 |
-| `0x354` | 4 | `mediaId` | R1 |
-| `0x358` | 4 | `version` | R1 |
-| `0x35C` | 4 | `baseVersion` | R1 |
-| `0x360` | 4 | `declaredTitleId` | R1 |
-| `0x364` | 1 | `platform` | R1 |
-| `0x365` | 1 | `executableType` | R1 |
-| `0x366` | 1 | `discNumber` | R1 |
-| `0x367` | 1 | `discCount` | R1 |
-| `0x368` | 4 | `saveGameId` | R1 |
-| `0x36C` | 5 | `creatorConsoleId` | R4 |
-| `0x371` | 8 | `profileId` | R4 |
-| `0x379` | `0x24` | `volumeDescriptor` | not exposed |
-| `0x39D` | 4 | `dataFileCount` | R1 |
-| `0x3A1` | 8 | `dataFilesSize` | R1 |
-| `0x3A9` | 4 | `format` | R1 |
-| `0x3AD` | 8 | `onlineCreator` | R1 |
-| `0x3B5` | 4 | `category` | R1 |
-| `0x3B9` | `0x20` | `reserved` | not exposed |
-| `0x3D9` | `0x24` | `mediaOrAvatarData` | R1 |
-| `0x3FD` | `0x14` | `deviceId` | R4 |
-| `0x411` | `0x900` | `displayNames` | R1 |
-| `0xD11` | `0x900` | `descriptions` | R1 |
-| `0x1611` | `0x80` | `publisherName` | R1 |
-| `0x1691` | `0x80` | `titleName` | R1 |
-| `0x1711` | 1 | `transferFlags` | R4 |
-| `0x1712` + `0x171A` | 4 + space | `thumbnail`: its size field and image space | R1 |
-| `0x1716` + `0x571A` | 4 + space | `titleThumbnail`: its size field and image space | R1 |
-| `0x971A` | `0x15F4` | `installerMetadata`: only for `0xAD0E` headers | R1 |
+| Offset                   | Size      | Key                                              | Values parsed by |
+| ------------------------ | --------- | ------------------------------------------------ | ---------------- |
+| `0x000`                  | 4         | `declaredSigning`                                | R1               |
+| _`CON`:_ `0x004`         | `0x1A8`   | `certificate`                                    | R50              |
+| _`CON`:_ `0x1AC`         | `0x80`    | `signature`                                      | (R51)            |
+| _`LIVE`/`PIRS`:_ `0x004` | `0x100`   | `signature`                                      | (R51)            |
+| _`LIVE`/`PIRS`:_ `0x104` | `0x128`   | `signaturePadding`                               | not exposed      |
+| `0x22C`                  | `0x100`   | `licences`                                       | R4               |
+| `0x32C`                  | `0x14`    | `contentId`                                      | R1               |
+| `0x340`                  | 4         | `headerSize`                                     | R1               |
+| `0x344`                  | 4         | `declaredContentType`                            | R1               |
+| `0x348`                  | 4         | `metadataVersion`                                | R1               |
+| `0x34C`                  | 8         | `contentSize`                                    | R1               |
+| `0x354`                  | 4         | `mediaId`                                        | R1               |
+| `0x358`                  | 4         | `version`                                        | R1               |
+| `0x35C`                  | 4         | `baseVersion`                                    | R1               |
+| `0x360`                  | 4         | `declaredTitleId`                                | R1               |
+| `0x364`                  | 1         | `platform`                                       | R1               |
+| `0x365`                  | 1         | `executableType`                                 | R1               |
+| `0x366`                  | 1         | `discNumber`                                     | R1               |
+| `0x367`                  | 1         | `discCount`                                      | R1               |
+| `0x368`                  | 4         | `saveGameId`                                     | R1               |
+| `0x36C`                  | 5         | `creatorConsoleId`                               | R4               |
+| `0x371`                  | 8         | `profileId`                                      | R4               |
+| `0x379`                  | `0x24`    | `volumeDescriptor`                               | not exposed      |
+| `0x39D`                  | 4         | `dataFileCount`                                  | R1               |
+| `0x3A1`                  | 8         | `dataFilesSize`                                  | R1               |
+| `0x3A9`                  | 4         | `format`                                         | R1               |
+| `0x3AD`                  | 8         | `onlineCreator`                                  | R1               |
+| `0x3B5`                  | 4         | `category`                                       | R1               |
+| `0x3B9`                  | `0x20`    | `reserved`                                       | not exposed      |
+| `0x3D9`                  | `0x24`    | `mediaOrAvatarData`                              | R1               |
+| `0x3FD`                  | `0x14`    | `deviceId`                                       | R4               |
+| `0x411`                  | `0x900`   | `displayNames`                                   | R1               |
+| `0xD11`                  | `0x900`   | `descriptions`                                   | R1               |
+| `0x1611`                 | `0x80`    | `publisherName`                                  | R1               |
+| `0x1691`                 | `0x80`    | `titleName`                                      | R1               |
+| `0x1711`                 | 1         | `transferFlags`                                  | R4               |
+| `0x1712` + `0x171A`      | 4 + space | `thumbnail`: its size field and image space      | R1               |
+| `0x1716` + `0x571A`      | 4 + space | `titleThumbnail`: its size field and image space | R1               |
+| `0x971A`                 | `0x15F4`  | `installerMetadata`: only for `0xAD0E` headers   | R1               |
 
 11. Thumbnail space is `0x4000` per thumbnail when `metadataVersion.effective` is 1, and `0x3D00` when it is 2.
 12. In metadata version 2, the `0x300` bytes freed from each thumbnail belong to the extra languages: `0x541A`–`0x5719` to `displayNames`, and `0x941A`–`0x9719` to `descriptions`.
@@ -705,10 +726,10 @@ function verifyHeaderAsync(
   bytes: Uint8Array,
   options?: { strictMode?: boolean },
 ): Promise<
-  | [true,  true,  Finding[]]              // verified: valid (may hold warnings and info)
-  | [true,  false, Finding[]]              // verified: not valid
-  | [false, false, VerifyFailureReason[]]  // a pre-check failed: nothing verified
->
+  | [true, true, Finding[]] // verified: valid (may hold warnings and info)
+  | [true, false, Finding[]] // verified: not valid
+  | [false, false, VerifyFailureReason[]] // a pre-check failed: nothing verified
+>;
 ```
 
 The parameter names are placeholders. `Async` is in the name because it is the only async function. No synchronous twin exists. The result follows `equals` (R60): success, then the verdict, then the details.
@@ -721,7 +742,7 @@ The parameter names are placeholders. `Async` is in the name because it is the o
 type VerifyFailureReason =
   | { kind: 'insufficient-bytes'; needed: number; got: number }
   | { kind: 'not-a-package' }
-  | { kind: 'header-size-invalid'; declared: number }
+  | { kind: 'header-size-invalid'; declared: number };
 ```
 
 These are the same pre-check reasons every function returns.
@@ -730,13 +751,13 @@ Every finding has the same shape. Details specific to a check, such as a compute
 
 ```ts
 type Finding = {
-  code: FindingCode                                    // a literal union of every code in the check table
-  severity: 'error' | 'warning' | 'info'
-  confidence: 'verified' | 'widely-reported' | 'unconfident'  // the spec's ✅, 🔶 and ❓ for the rule
-  specRef: string                                      // e.g. '§6.3'
-  field: FieldName                                     // the same keys as diff (R61)
-  message: string                                      // brief, human-readable English, with the details
-}
+  code: FindingCode; // a literal union of every code in the check table
+  severity: 'error' | 'warning' | 'info';
+  confidence: 'verified' | 'widely-reported' | 'unconfident'; // the spec's ✅, 🔶 and ❓ for the rule
+  specRef: string; // e.g. '§6.3'
+  field: FieldName; // the same keys as diff (R61)
+  message: string; // brief, human-readable English, with the details
+};
 ```
 
 ### Behaviour
@@ -770,31 +791,32 @@ type Finding = {
 
 **The checks and their severities.** The list and severities are agreed, based on the severity chart below. They will be tuned by hand over time.
 
-| Code | Check | Proposed severity |
-|---|---|---|
-| `content-id-mismatch` | SHA-1 of `0x344` up to the padded end ≠ the content ID at `0x32C` (§6.3) | error |
-| `thumbnail-exceeds-space` | a declared thumbnail size > its space, `0x4000` or `0x3D00` (§6.5) | error |
-| `volume-type-unknown` | volume type at `0x3A9` is neither 0 nor 1 (§6.4, §6.9) | error |
-| `console-type-unknown` | a `CON` console type is neither `0x01` nor `0x02` (§6.2) | error |
-| `volume-descriptor-length` | the byte at `0x379` ≠ `0x24` (§6.6, §6.7) | warning |
-| `stfs-has-data-files` | an STFS package with a non-zero data file count (`0x39D`) or combined size (`0x3A1`) (§6.4) | warning |
-| `metadata-version-unknown` | the stored metadata version is not 0, 1 or 2 (§6.1) | warning |
-| `text-unpaired-surrogate` | malformed UTF-16 in any text field, detected with `TextDecoder('utf-16be', { fatal: true })` (§6.5) | warning |
-| `licensee-type-unknown` | a licence with an undocumented type (§6.3) | warning |
-| `value-exceeds-max-safe-integer` | `contentSize` or `dataFilesSize` > 2⁵³ − 1 (§6.4) | warning |
-| `thumbnail-not-png` | a non-empty thumbnail doesn't start with the PNG signature (§6.4) | info |
-| `thumbnail-truncated` | a PNG thumbnail's chunks don't end with `IEND` exactly at its declared size (§6.4) | info |
-| `content-type-unknown` | the content type isn't in the §4.2 list | info |
-| `transfer-flags-unknown-bits` | bit `0x02` or `0x01` is set (§6.4) | info |
-| `reserved-not-zero` | `0x3B9`–`0x3D8` not all zero (§6.4) | info |
-| `signature-padding-not-zero` | `LIVE`/`PIRS` padding `0x104`–`0x22B` not all zero (§6.2) | info |
-| `signature-empty` | an all-zero signature, which marks a tool-made package (§2.3, §6.2) | info |
+| Code                             | Check                                                                                               | Proposed severity |
+| -------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------- |
+| `content-id-mismatch`            | SHA-1 of `0x344` up to the padded end ≠ the content ID at `0x32C` (§6.3)                            | error             |
+| `thumbnail-exceeds-space`        | a declared thumbnail size > its space, `0x4000` or `0x3D00` (§6.5)                                  | error             |
+| `volume-type-unknown`            | volume type at `0x3A9` is neither 0 nor 1 (§6.4, §6.9)                                              | error             |
+| `console-type-unknown`           | a `CON` console type is neither `0x01` nor `0x02` (§6.2)                                            | error             |
+| `volume-descriptor-length`       | the byte at `0x379` ≠ `0x24` (§6.6, §6.7)                                                           | warning           |
+| `stfs-has-data-files`            | an STFS package with a non-zero data file count (`0x39D`) or combined size (`0x3A1`) (§6.4)         | warning           |
+| `metadata-version-unknown`       | the stored metadata version is not 0, 1 or 2 (§6.1)                                                 | warning           |
+| `text-unpaired-surrogate`        | malformed UTF-16 in any text field, detected with `TextDecoder('utf-16be', { fatal: true })` (§6.5) | warning           |
+| `licensee-type-unknown`          | a licence with an undocumented type (§6.3)                                                          | warning           |
+| `value-exceeds-max-safe-integer` | `contentSize` or `dataFilesSize` > 2⁵³ − 1 (§6.4)                                                   | warning           |
+| `thumbnail-not-png`              | a non-empty thumbnail doesn't start with the PNG signature (§6.4)                                   | info              |
+| `thumbnail-truncated`            | a PNG thumbnail's chunks don't end with `IEND` exactly at its declared size (§6.4)                  | info              |
+| `content-type-unknown`           | the content type isn't in the §4.2 list                                                             | info              |
+| `transfer-flags-unknown-bits`    | bit `0x02` or `0x01` is set (§6.4)                                                                  | info              |
+| `reserved-not-zero`              | `0x3B9`–`0x3D8` not all zero (§6.4)                                                                 | info              |
+| `signature-padding-not-zero`     | `LIVE`/`PIRS` padding `0x104`–`0x22B` not all zero (§6.2)                                           | info              |
+| `signature-empty`                | an all-zero signature, which marks a tool-made package (§2.3, §6.2)                                 | info              |
 
 Dropped: "an SVOD header file is exactly `0xB000` bytes". V1 can't tell whether it was given the whole file or a prefix, so the check belongs in the future SVOD package.
 
 ### Severity chart
 
 How other software treats each field, researched on 2026-10-13 from source code:
+
 - **Velocity:** `hetelek/Velocity` @ `cf0b84c`, mainly `XboxInternals/Stfs/XContentHeader.cpp` (`readMetadata`).
 - **xenia:** `xenia-canary` @ `2372a54`, mainly `kernel/xam/xcontent/`, with upstream `xenia-project/xenia` @ `95a5c3e` where it differs.
 - **Others:**
@@ -809,25 +831,25 @@ How other software treats each field, researched on 2026-10-13 from source code:
 
 "Rejects" means the software refuses to open or mount the package.
 
-| Code | Velocity | xenia | Other tools | Console | Basis for the severity |
-|---|---|---|---|---|---|
-| `content-id-mismatch` | Never verifies. Recomputes it on save over the same range we use (`0x344` to the padded end). | Never reads it. No SHA-1 or RSA code. | No reader checks it. Every GOD writer computes it over the same range. XeBuild's `su_check` **rejects** a mismatch. | Assumed to be checked; no primary source. | Every one of 772 real packages matches, and every writer gets it right. A mismatch means the header changed without being rehashed. |
-| `thumbnail-exceeds-space` | No bound. Reads past the space; a huge size can crash it. | Clamps the thumbnail. The title thumbnail is unclamped and can read out of bounds. | `iso2svod` refuses icons over `0x3D00`. ACC can panic. | Not found. | Undefined behaviour in two major tools. `parseHeader` can't represent it either. |
-| `volume-type-unknown` | **Rejects** (`fileSystem > 1`). | Fails to mount (upstream logs "Unknown XContent volume type"). | ACC rejects or panics. Writers always write 1 for SVOD. | Not found. | Rejected by both major tools. |
-| `console-type-unknown` | **Rejects** ("Invalid console type"; checks `value & 3`). | Never reads it. | RP rejects: it doesn't detect the package as STFS. | Not found. | Rejected by Velocity and RP. |
-| `metadata-version-unknown` | Ignored in release builds. Only debug builds reject a value other than 2. | Not validated. `>= 2` enables version 2. Note: xenia caps thumbnails at `0x4000` only when the value is exactly 1, so a stored 0 gets `0x3D00`, unlike our rule. | RP clamps (`< 2` is version 1). Writers always write 2. | Not found. | Lenient everywhere: warning. |
-| `volume-descriptor-length` | Never checks. Writes `0x24` on save, which corrects it. | Has a check, `is_valid()`, that is never called. | No reader checks it. Every writer writes `0x24`. | Not found. | Universally written, never enforced. |
-| `stfs-has-data-files` | Ignored and kept. | Canary ignores it. **Upstream** looks for a `.data` folder when the count is above 1, and fails to mount without one. | Not checked. | Not found. | Only upstream xenia acts on it. |
-| `thumbnail-not-png` | Ignored: shows no image. | Passed through. The install dialog shows no icon. | RP shows no icon. **iso2god-rs writes zero-filled thumbnails, and Iso2God writes 20 zero bytes when there's no icon.** Consoles accept both. | Accepted (tool output loads). | Harmless and common in tool-made GODs: info, so strict mode doesn't fail them. |
-| `thumbnail-truncated` | Not checked. | Not checked. | RP shows no icon. | Not found. | As above. |
-| `text-unpaired-surrogate` | Kept as is. | Kept in UTF-16. Converting to UTF-8 probably throws (inferred, not traced). | ACC's old parser panics; its new one replaces. Writers produce valid UTF-16. | Not found. | Malformed text that can break some tools. The package itself likely works. |
-| `licensee-type-unknown` | **Rejects** ("Invalid license type"). It uses the same 9 types as the spec. | Ignores licences entirely. | ACC's old parser panics; its new one keeps the raw value. | Not found. | Velocity rejects it, but nothing shows the console does. Undocumented, not proven invalid. |
-| `value-exceeds-max-safe-integer` | Stored as 64-bit, unchecked. | Content size is used for the disk-space check, unchecked. | 64-bit, unchecked. | n/a | Valid in the format; it's only our own representation limit. |
-| `content-type-unknown` | Accepted. Shows "Unknown". | Accepted, except 0 (`kInvalid`), which content listing rejects. | RP shows "Unknown". ACC's new parser rejects. | Not found. | Accepted by both major tools. |
-| `transfer-flags-unknown-bits` | Accepted. Labelled "Unknown" and kept. | Never read. | Read for display. Writers write 0. | Free60 lists the bits as "None". | Accepted everywhere. |
-| `reserved-not-zero` | Never read; kept on save. | Never read. | Never read. Writers write zeros. | Not found. | Ignored everywhere. |
-| `signature-padding-not-zero` | Never read. | Never read. | RP doesn't detect it as `LIVE`/`PIRS` (to avoid confusion with a Nintendo DS format, not for format reasons). | Not found. | Ignored by all but one, for an unrelated reason. |
-| `signature-empty` | No RSA check anywhere. | No RSA check. | Every GOD writer writes an all-zero signature. | **A stock console rejects it; soft-modded consoles patch out the check** (xeBuild, XeUnshackle, FreeMyXe). | Normal for tool-made packages on modded consoles. |
+| Code                             | Velocity                                                                                      | xenia                                                                                                                                                            | Other tools                                                                                                                                  | Console                                                                                                    | Basis for the severity                                                                                                              |
+| -------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `content-id-mismatch`            | Never verifies. Recomputes it on save over the same range we use (`0x344` to the padded end). | Never reads it. No SHA-1 or RSA code.                                                                                                                            | No reader checks it. Every GOD writer computes it over the same range. XeBuild's `su_check` **rejects** a mismatch.                          | Assumed to be checked; no primary source.                                                                  | Every one of 772 real packages matches, and every writer gets it right. A mismatch means the header changed without being rehashed. |
+| `thumbnail-exceeds-space`        | No bound. Reads past the space; a huge size can crash it.                                     | Clamps the thumbnail. The title thumbnail is unclamped and can read out of bounds.                                                                               | `iso2svod` refuses icons over `0x3D00`. ACC can panic.                                                                                       | Not found.                                                                                                 | Undefined behaviour in two major tools. `parseHeader` can't represent it either.                                                    |
+| `volume-type-unknown`            | **Rejects** (`fileSystem > 1`).                                                               | Fails to mount (upstream logs "Unknown XContent volume type").                                                                                                   | ACC rejects or panics. Writers always write 1 for SVOD.                                                                                      | Not found.                                                                                                 | Rejected by both major tools.                                                                                                       |
+| `console-type-unknown`           | **Rejects** ("Invalid console type"; checks `value & 3`).                                     | Never reads it.                                                                                                                                                  | RP rejects: it doesn't detect the package as STFS.                                                                                           | Not found.                                                                                                 | Rejected by Velocity and RP.                                                                                                        |
+| `metadata-version-unknown`       | Ignored in release builds. Only debug builds reject a value other than 2.                     | Not validated. `>= 2` enables version 2. Note: xenia caps thumbnails at `0x4000` only when the value is exactly 1, so a stored 0 gets `0x3D00`, unlike our rule. | RP clamps (`< 2` is version 1). Writers always write 2.                                                                                      | Not found.                                                                                                 | Lenient everywhere: warning.                                                                                                        |
+| `volume-descriptor-length`       | Never checks. Writes `0x24` on save, which corrects it.                                       | Has a check, `is_valid()`, that is never called.                                                                                                                 | No reader checks it. Every writer writes `0x24`.                                                                                             | Not found.                                                                                                 | Universally written, never enforced.                                                                                                |
+| `stfs-has-data-files`            | Ignored and kept.                                                                             | Canary ignores it. **Upstream** looks for a `.data` folder when the count is above 1, and fails to mount without one.                                            | Not checked.                                                                                                                                 | Not found.                                                                                                 | Only upstream xenia acts on it.                                                                                                     |
+| `thumbnail-not-png`              | Ignored: shows no image.                                                                      | Passed through. The install dialog shows no icon.                                                                                                                | RP shows no icon. **iso2god-rs writes zero-filled thumbnails, and Iso2God writes 20 zero bytes when there's no icon.** Consoles accept both. | Accepted (tool output loads).                                                                              | Harmless and common in tool-made GODs: info, so strict mode doesn't fail them.                                                      |
+| `thumbnail-truncated`            | Not checked.                                                                                  | Not checked.                                                                                                                                                     | RP shows no icon.                                                                                                                            | Not found.                                                                                                 | As above.                                                                                                                           |
+| `text-unpaired-surrogate`        | Kept as is.                                                                                   | Kept in UTF-16. Converting to UTF-8 probably throws (inferred, not traced).                                                                                      | ACC's old parser panics; its new one replaces. Writers produce valid UTF-16.                                                                 | Not found.                                                                                                 | Malformed text that can break some tools. The package itself likely works.                                                          |
+| `licensee-type-unknown`          | **Rejects** ("Invalid license type"). It uses the same 9 types as the spec.                   | Ignores licences entirely.                                                                                                                                       | ACC's old parser panics; its new one keeps the raw value.                                                                                    | Not found.                                                                                                 | Velocity rejects it, but nothing shows the console does. Undocumented, not proven invalid.                                          |
+| `value-exceeds-max-safe-integer` | Stored as 64-bit, unchecked.                                                                  | Content size is used for the disk-space check, unchecked.                                                                                                        | 64-bit, unchecked.                                                                                                                           | n/a                                                                                                        | Valid in the format; it's only our own representation limit.                                                                        |
+| `content-type-unknown`           | Accepted. Shows "Unknown".                                                                    | Accepted, except 0 (`kInvalid`), which content listing rejects.                                                                                                  | RP shows "Unknown". ACC's new parser rejects.                                                                                                | Not found.                                                                                                 | Accepted by both major tools.                                                                                                       |
+| `transfer-flags-unknown-bits`    | Accepted. Labelled "Unknown" and kept.                                                        | Never read.                                                                                                                                                      | Read for display. Writers write 0.                                                                                                           | Free60 lists the bits as "None".                                                                           | Accepted everywhere.                                                                                                                |
+| `reserved-not-zero`              | Never read; kept on save.                                                                     | Never read.                                                                                                                                                      | Never read. Writers write zeros.                                                                                                             | Not found.                                                                                                 | Ignored everywhere.                                                                                                                 |
+| `signature-padding-not-zero`     | Never read.                                                                                   | Never read.                                                                                                                                                      | RP doesn't detect it as `LIVE`/`PIRS` (to avoid confusion with a Nintendo DS format, not for format reasons).                                | Not found.                                                                                                 | Ignored by all but one, for an unrelated reason.                                                                                    |
+| `signature-empty`                | No RSA check anywhere.                                                                        | No RSA check.                                                                                                                                                    | Every GOD writer writes an all-zero signature.                                                                                               | **A stock console rejects it; soft-modded consoles patch out the check** (xeBuild, XeUnshackle, FreeMyXe). | Normal for tool-made packages on modded consoles.                                                                                   |
 
 **Caveats from the research**
 

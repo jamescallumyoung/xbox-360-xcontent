@@ -1,6 +1,6 @@
 # Xbox 360 Content Specification: research record
 
-This document records the primary research behind [xcontent-spec2.md](xcontent-spec2.md): the questions that online sources couldn't settle, how they were checked against real drives, and what was found. The specification states the results. This record holds the evidence and the questions that are still open.
+This document records the primary research behind [xcontent-specification.md](xcontent-specification.md): the questions that online sources couldn't settle, how they were checked against real drives, and what was found. The specification states the results. This record holds the evidence and the questions that are still open.
 
 ## Sources examined
 
@@ -15,8 +15,8 @@ This document records the primary research behind [xcontent-spec2.md](xcontent-s
 No `Data####` file was read. Every header field was decoded as described in the specification's §6.
 
 **Detailed findings:**
-- [real-drive-findings.md](session_context/loadout/docs/real-drive-findings.md): every result, with counts and examples
-- [x1-research-findings.md](session_context/loadout/docs/x1-research-findings.md): the SVOD `.data/` question (X1)
+- [real-drive-findings.md](../session_context/loadout/docs/real-drive-findings.md): every result, with counts and examples
+- [x1-research-findings.md](../session_context/loadout/docs/x1-research-findings.md): the SVOD `.data/` question (X1)
 
 ## Questions checked against real drives
 

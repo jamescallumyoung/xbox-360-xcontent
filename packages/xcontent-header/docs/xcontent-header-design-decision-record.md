@@ -2,7 +2,7 @@
 
 **Status:** in design. No code yet. Last updated 2026-10-13.
 
-This records the decisions made while designing the public API of `xcontent-header`, the first of the new packages that replace `xcontent`, `xcontent-web` and `app`. It's for James and for any agent continuing the work. The format reference is [xcontent-spec2.md](xcontent-spec2.md). Section numbers (§) below refer to it.
+This records the decisions made while designing the public API of `xcontent-header`, the first of the new packages that replace `xcontent`, `xcontent-web` and `app`. It's for James and for any agent continuing the work. The format reference is [xcontent-specification.md](../../../docs/xcontent-specification.md). Section numbers (§) below refer to it.
 
 Items marked **Open** are not decided yet. Everything else is decided.
 
@@ -22,18 +22,18 @@ Items marked **Open** are not decided yet. Everything else is decided.
 
 Each function has an ID, used in discussion. IDs are never renumbered. When functions merge, the merged function keeps the existing number. When one splits, the parts get new numbers (R5 → R50, R51).
 
-| ID | Function | Status |
-|---|---|---|
-| R1 | `parseHeader` | decided. R2 (format) and R3 (content type) are part of it. |
-| R4 | `parseRestrictions` | decided |
-| R50 | `parseConsoleCertificate` | decided (field types open, §4.3) |
-| R51 | `hasEmptySignature` | decided |
-| R60 | `equals` | decided |
-| R61 | `diff` | decided |
-| V1 | `verifyHeaderAsync` | findings design pending (§5) |
-| V2 | verify an SVOD package | shelved; moves to the SVOD package (§7) |
-| B1 | bulk-verify a title | shelved; may move to the web package |
-| W1 | edit header fields | shelved |
+| ID  | Function                  | Status                                                     |
+| --- | ------------------------- | ---------------------------------------------------------- |
+| R1  | `parseHeader`             | decided. R2 (format) and R3 (content type) are part of it. |
+| R4  | `parseRestrictions`       | decided                                                    |
+| R50 | `parseConsoleCertificate` | decided (field types open, §4.3)                           |
+| R51 | `hasEmptySignature`       | decided                                                    |
+| R60 | `equals`                  | decided                                                    |
+| R61 | `diff`                    | decided                                                    |
+| V1  | `verifyHeaderAsync`       | findings design pending (§5)                               |
+| V2  | verify an SVOD package    | shelved; moves to the SVOD package (§7)                    |
+| B1  | bulk-verify a title       | shelved; may move to the web package                       |
+| W1  | edit header fields        | shelved                                                    |
 
 ---
 
@@ -50,24 +50,24 @@ Each function has an ID, used in discussion. IDs are never renumbered. When func
 
 There are no floating-point values in the header.
 
-| Kind of value | Type | Rule |
-|---|---|---|
-| **Truly opaque identifiers** | `string` | uppercase hex, no `0x` prefix, zero-padded to the field's full width (2 digits per byte). They are strings that happen to look like hex, matching how directory names and the spec write them. Example: Title ID `0x1` is `00000001`. |
-| **Quantities** (sizes, counts, versions, disc numbers) | `number` | |
-| **Bit fields** (licence bits and flags, transfer flags) | `number` | so consumers can use bitwise operators |
-| **Lookup codes** (content type, volume type, licensee type, metadata version) | `number` | |
-| **Text** | `string \| null` | see §2.4 |
-| **Images** | `Uint8Array \| null` | see §2.5 |
+| Kind of value                                                                 | Type                 | Rule                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Truly opaque identifiers**                                                  | `string`             | uppercase hex, no `0x` prefix, zero-padded to the field's full width (2 digits per byte). They are strings that happen to look like hex, matching how directory names and the spec write them. Example: Title ID `0x1` is `00000001`. |
+| **Quantities** (sizes, counts, versions, disc numbers)                        | `number`             |                                                                                                                                                                                                                                       |
+| **Bit fields** (licence bits and flags, transfer flags)                       | `number`             | so consumers can use bitwise operators                                                                                                                                                                                                |
+| **Lookup codes** (content type, volume type, licensee type, metadata version) | `number`             |                                                                                                                                                                                                                                       |
+| **Text**                                                                      | `string \| null`     | see §2.4                                                                                                                                                                                                                              |
+| **Images**                                                                    | `Uint8Array \| null` | see §2.5                                                                                                                                                                                                                              |
 
 The identifiers, with their width in hex digits:
 
-| Identifier | Digits |
-|---|---|
-| `declaredTitleId`, `mediaId`, `saveGameId` | 8 |
-| console IDs (certificate owner `0x006`, creator `0x36C`) | 10 |
-| `licenseeData` | 12 |
-| `profileId`, `onlineCreator` | 16 |
-| `deviceId`, `contentId` | 40 |
+| Identifier                                               | Digits |
+| -------------------------------------------------------- | ------ |
+| `declaredTitleId`, `mediaId`, `saveGameId`               | 8      |
+| console IDs (certificate owner `0x006`, creator `0x36C`) | 10     |
+| `licenseeData`                                           | 12     |
+| `profileId`, `onlineCreator`                             | 16     |
+| `deviceId`, `contentId`                                  | 40     |
 
 A profile ID of zero (eight zero bytes) is `0000000000000000`.
 
@@ -77,11 +77,11 @@ A profile ID of zero (eight zero bytes) is `0000000000000000`.
 
 ### 2.3 Three naming patterns for header values
 
-| Pattern | Meaning | Used for |
-|---|---|---|
-| `declared…` prefix | What the header **claims**, when something outside the header decides the truth (the directory, or the signature). | `declaredTitleId`, `declaredContentType`, `declaredSigning` |
-| `{ declared, effective }` | The stored value, plus how readers **interpret** it under a known rule. | `metadataVersion` only |
-| `{ raw, decoded }` | The stored value, plus a **lookup** of its meaning. | `format`, `licenseeType`, `transferFlags`, `consoleType` (proposed) |
+| Pattern                   | Meaning                                                                                                            | Used for                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `declared…` prefix        | What the header **claims**, when something outside the header decides the truth (the directory, or the signature). | `declaredTitleId`, `declaredContentType`, `declaredSigning`         |
+| `{ declared, effective }` | The stored value, plus how readers **interpret** it under a known rule.                                            | `metadataVersion` only                                              |
+| `{ raw, decoded }`        | The stored value, plus a **lookup** of its meaning.                                                                | `format`, `licenseeType`, `transferFlags`, `consoleType` (proposed) |
 
 Why not `{ declared, effective }` for lookups: "effective" would suggest the console treats the value differently from what's stored. Only the metadata version has such a rule (readers treat any value other than 2 as version 1, §6.1).
 
@@ -94,7 +94,7 @@ Why not `{ declared, effective }` for lookups: "effective" would suggest the con
 - **Empty fields** (first code unit `0x0000`) are `null`.
 - **V1** detects unpaired surrogates with a second `TextDecoder('utf-16be', { fatal: true })`, which throws on malformed text. That becomes a `text-unpaired-surrogate` finding.
 - **ASCII fields** (the certificate's part number and date) use `TextDecoder('latin1')`.
-- **No repair:** text stored as UTF-8 inside UTF-16BE (the *South Park* fixture) is returned as decoded. Undoing it would be a heuristic.
+- **No repair:** text stored as UTF-8 inside UTF-16BE (the _South Park_ fixture) is returned as decoded. Undoing it would be a heuristic.
 
 ### 2.5 Thumbnails
 
@@ -113,10 +113,18 @@ Display names and descriptions are arrays that keep each slot's position, becaus
 
 ```ts
 export const LanguageSlot = {
-  English: 0, Japanese: 1, German: 2, French: 3, Spanish: 4,
-  Italian: 5, Korean: 6, TraditionalChinese: 7, Portuguese: 8,
-  Polish: 10, Russian: 11,
-} as const
+  English: 0,
+  Japanese: 1,
+  German: 2,
+  French: 3,
+  Spanish: 4,
+  Italian: 5,
+  Korean: 6,
+  TraditionalChinese: 7,
+  Portuguese: 8,
+  Polish: 10,
+  Russian: 11,
+} as const;
 ```
 
 ---
@@ -151,13 +159,13 @@ The magic is checked first because "not a package" is a more useful answer than 
 
 **Result tuples.** R1, R4, R50, R51 and R61 return `[true, result]` on success and `[false, reasons]` on failure, where `reasons` is a list. The caller checks the first element to know what the second holds. (R51's result is itself a `boolean`: `[true, isEmpty]`. R60 returns three elements: `[success, isEqual, differences | reasons]`, see §4.5.)
 
-| Reason | Raised by | Returned by |
-|---|---|---|
-| `insufficient-bytes` | magic check, header size check | all functions. **One shared type** for R1, R4, R50 and R51. |
-| `not-a-package` | magic check | all functions |
-| `header-size-invalid` | header size check | all functions |
-| `value-exceeds-max-safe-integer` | parsing | `parseHeader` only |
-| `value-out-of-range` | parsing | `parseHeader` only |
+| Reason                           | Raised by                      | Returned by                                                 |
+| -------------------------------- | ------------------------------ | ----------------------------------------------------------- |
+| `insufficient-bytes`             | magic check, header size check | all functions. **One shared type** for R1, R4, R50 and R51. |
+| `not-a-package`                  | magic check                    | all functions                                               |
+| `header-size-invalid`            | header size check              | all functions                                               |
+| `value-exceeds-max-safe-integer` | parsing                        | `parseHeader` only                                          |
+| `value-out-of-range`             | parsing                        | `parseHeader` only                                          |
 
 **Pre-check failures end a function early.** It parses or compares nothing else, so `reasons` holds exactly one pre-check reason. This applies to every function, and goes in the package's API documentation.
 
@@ -175,15 +183,15 @@ The magic is checked first because "not a package" is a more useful answer than 
 
 **Not failures** (they have a truthful representation):
 
-| Condition | Result |
-|---|---|
-| metadata version other than 0, 1 or 2 | `{ declared: 7, effective: 1 }` |
-| volume type other than 0 or 1 | `format: { raw: 5, decoded: 'unknown' }` |
-| unknown content type | its `number` |
-| unknown licensee type | `{ raw, decoded: 'unknown' }` |
-| any identifier, including all zeros | its hex string |
-| unpaired surrogates in text | replaced with U+FFFD by `TextDecoder` (§2.4) |
-| text stored as UTF-8 inside UTF-16BE | returned as decoded (§2.4) |
+| Condition                             | Result                                       |
+| ------------------------------------- | -------------------------------------------- |
+| metadata version other than 0, 1 or 2 | `{ declared: 7, effective: 1 }`              |
+| volume type other than 0 or 1         | `format: { raw: 5, decoded: 'unknown' }`     |
+| unknown content type                  | its `number`                                 |
+| unknown licensee type                 | `{ raw, decoded: 'unknown' }`                |
+| any identifier, including all zeros   | its hex string                               |
+| unpaired surrogates in text           | replaced with U+FFFD by `TextDecoder` (§2.4) |
+| text stored as UTF-8 inside UTF-16BE  | returned as decoded (§2.4)                   |
 
 **What parsing can't detect.** The header has no markers between fields: a byte's meaning comes only from its offset. So parsing can't tell whether an image spilled past its space while declaring a size that fits. V1 can find most such cases indirectly: an image whose PNG structure doesn't end at the declared size, or, in version 1, a title thumbnail that no longer starts with the PNG signature.
 
@@ -197,29 +205,29 @@ Type names follow the pattern `ParseHeaderFailureReason`, `ParseRestrictionsFail
 
 Answers "what is this package?": the identity steps of §6.9 plus the display information.
 
-| Field | Type | Source |
-|---|---|---|
-| `declaredSigning` | `'CON' \| 'LIVE' \| 'PIRS'` | `0x000` |
-| `contentId` | identifier (40) | `0x32C` |
-| `headerSize` | `number` | `0x340` |
-| `declaredContentType` | `number` | `0x344` |
-| `metadataVersion` | `{ declared: number, effective: 1 \| 2 }` | `0x348` |
-| `contentSize` | `number` | `0x34C` |
-| `mediaId` | identifier (8) | `0x354` |
-| `version`, `baseVersion` | `number` | `0x358`, `0x35C` |
-| `declaredTitleId` | identifier (8) | `0x360` |
-| `platform`, `executableType`, `discNumber`, `discCount` | `number` | `0x364`–`0x367` |
-| `saveGameId` | identifier (8) | `0x368` |
-| `dataFileCount` | `number` | `0x39D` |
-| `dataFilesSize` | `number` | `0x3A1` |
-| `format` | `{ raw: number, decoded: 'stfs' \| 'svod' \| 'unknown' }` | `0x3A9` |
-| `onlineCreator` | identifier (16) | `0x3AD` |
-| `category` | `number` | `0x3B5` |
-| `mediaOrAvatarData` | `Uint8Array \| null` (a copy; `null` in version 1) | `0x3D9`, version 2 only |
-| `displayNames`, `descriptions` | `(string \| null)[]` (9 or 12) | `0x411`, `0xD11`, plus `0x541A`, `0x941A` in version 2 |
-| `publisherName`, `titleName` | `string \| null` | `0x1611`, `0x1691` |
-| `thumbnail`, `titleThumbnail` | `Uint8Array \| null` | `0x1712` + `0x171A`, `0x1716` + `0x571A` |
-| `installerMetadata` | `Uint8Array \| null` (a copy; `null` for `0x971A` headers) | `0x971A`, only when the header size is `0xAD0E` |
+| Field                                                   | Type                                                       | Source                                                 |
+| ------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| `declaredSigning`                                       | `'CON' \| 'LIVE' \| 'PIRS'`                                | `0x000`                                                |
+| `contentId`                                             | identifier (40)                                            | `0x32C`                                                |
+| `headerSize`                                            | `number`                                                   | `0x340`                                                |
+| `declaredContentType`                                   | `number`                                                   | `0x344`                                                |
+| `metadataVersion`                                       | `{ declared: number, effective: 1 \| 2 }`                  | `0x348`                                                |
+| `contentSize`                                           | `number`                                                   | `0x34C`                                                |
+| `mediaId`                                               | identifier (8)                                             | `0x354`                                                |
+| `version`, `baseVersion`                                | `number`                                                   | `0x358`, `0x35C`                                       |
+| `declaredTitleId`                                       | identifier (8)                                             | `0x360`                                                |
+| `platform`, `executableType`, `discNumber`, `discCount` | `number`                                                   | `0x364`–`0x367`                                        |
+| `saveGameId`                                            | identifier (8)                                             | `0x368`                                                |
+| `dataFileCount`                                         | `number`                                                   | `0x39D`                                                |
+| `dataFilesSize`                                         | `number`                                                   | `0x3A1`                                                |
+| `format`                                                | `{ raw: number, decoded: 'stfs' \| 'svod' \| 'unknown' }`  | `0x3A9`                                                |
+| `onlineCreator`                                         | identifier (16)                                            | `0x3AD`                                                |
+| `category`                                              | `number`                                                   | `0x3B5`                                                |
+| `mediaOrAvatarData`                                     | `Uint8Array \| null` (a copy; `null` in version 1)         | `0x3D9`, version 2 only                                |
+| `displayNames`, `descriptions`                          | `(string \| null)[]` (9 or 12)                             | `0x411`, `0xD11`, plus `0x541A`, `0x941A` in version 2 |
+| `publisherName`, `titleName`                            | `string \| null`                                           | `0x1611`, `0x1691`                                     |
+| `thumbnail`, `titleThumbnail`                           | `Uint8Array \| null`                                       | `0x1712` + `0x171A`, `0x1716` + `0x571A`               |
+| `installerMetadata`                                     | `Uint8Array \| null` (a copy; `null` for `0x971A` headers) | `0x971A`, only when the header size is `0xAD0E`        |
 
 - **Signature:** `parseHeader(bytes): [true, Header] | [false, ParseHeaderFailureReason[]]`.
 - **`declaredSigning`** has no trailing space: the magic `CON ` becomes `'CON'`.
@@ -338,47 +346,47 @@ diff(a, b): [true, Record<FieldName, 'same' | 'different'>] | [false, DiffFailur
 
 **Keys that apply to only some headers:** present in one header and not the other is `different`; present in both or absent from both is compared or `same`.
 
-| Offset | Size | Key | Parsed by |
-|---|---|---|---|
-| `0x000` | 4 | `declaredSigning` | R1 |
-| *`CON`:* `0x004` | `0x1A8` | `certificate` | R50 |
-| *`CON`:* `0x1AC` | `0x80` | `signature` | (R51) |
-| *`LIVE`/`PIRS`:* `0x004` | `0x100` | `signature` | (R51) |
-| *`LIVE`/`PIRS`:* `0x104` | `0x128` | `signaturePadding` | not exposed |
-| `0x22C` | `0x100` | `licences` | R4 |
-| `0x32C` | `0x14` | `contentId` | R1 |
-| `0x340` | 4 | `headerSize` | R1 |
-| `0x344` | 4 | `declaredContentType` | R1 |
-| `0x348` | 4 | `metadataVersion` | R1 |
-| `0x34C` | 8 | `contentSize` | R1 |
-| `0x354` | 4 | `mediaId` | R1 |
-| `0x358` | 4 | `version` | R1 |
-| `0x35C` | 4 | `baseVersion` | R1 |
-| `0x360` | 4 | `declaredTitleId` | R1 |
-| `0x364` | 1 | `platform` | R1 |
-| `0x365` | 1 | `executableType` | R1 |
-| `0x366` | 1 | `discNumber` | R1 |
-| `0x367` | 1 | `discCount` | R1 |
-| `0x368` | 4 | `saveGameId` | R1 |
-| `0x36C` | 5 | `creatorConsoleId` | R4 |
-| `0x371` | 8 | `profileId` | R4 |
-| `0x379` | `0x24` | `volumeDescriptor` | not exposed |
-| `0x39D` | 4 | `dataFileCount` | R1 |
-| `0x3A1` | 8 | `dataFilesSize` | R1 |
-| `0x3A9` | 4 | `format` | R1 |
-| `0x3AD` | 8 | `onlineCreator` | R1 |
-| `0x3B5` | 4 | `category` | R1 |
-| `0x3B9` | `0x20` | `reserved` | not exposed |
-| `0x3D9` | `0x24` | `mediaOrAvatarData` | R1 |
-| `0x3FD` | `0x14` | `deviceId` | R4 |
-| `0x411` | `0x900` | `displayNames` | R1 |
-| `0xD11` | `0x900` | `descriptions` | R1 |
-| `0x1611` | `0x80` | `publisherName` | R1 |
-| `0x1691` | `0x80` | `titleName` | R1 |
-| `0x1711` | 1 | `transferFlags` | R4 |
-| `0x1712` + `0x171A` | 4 + space | `thumbnail` (size field and image space) | R1 |
-| `0x1716` + `0x571A` | 4 + space | `titleThumbnail` (size field and image space) | R1 |
-| `0x971A` | `0x15F4` | `installerMetadata`, only for `0xAD0E` headers | R1 |
+| Offset                   | Size      | Key                                            | Parsed by   |
+| ------------------------ | --------- | ---------------------------------------------- | ----------- |
+| `0x000`                  | 4         | `declaredSigning`                              | R1          |
+| _`CON`:_ `0x004`         | `0x1A8`   | `certificate`                                  | R50         |
+| _`CON`:_ `0x1AC`         | `0x80`    | `signature`                                    | (R51)       |
+| _`LIVE`/`PIRS`:_ `0x004` | `0x100`   | `signature`                                    | (R51)       |
+| _`LIVE`/`PIRS`:_ `0x104` | `0x128`   | `signaturePadding`                             | not exposed |
+| `0x22C`                  | `0x100`   | `licences`                                     | R4          |
+| `0x32C`                  | `0x14`    | `contentId`                                    | R1          |
+| `0x340`                  | 4         | `headerSize`                                   | R1          |
+| `0x344`                  | 4         | `declaredContentType`                          | R1          |
+| `0x348`                  | 4         | `metadataVersion`                              | R1          |
+| `0x34C`                  | 8         | `contentSize`                                  | R1          |
+| `0x354`                  | 4         | `mediaId`                                      | R1          |
+| `0x358`                  | 4         | `version`                                      | R1          |
+| `0x35C`                  | 4         | `baseVersion`                                  | R1          |
+| `0x360`                  | 4         | `declaredTitleId`                              | R1          |
+| `0x364`                  | 1         | `platform`                                     | R1          |
+| `0x365`                  | 1         | `executableType`                               | R1          |
+| `0x366`                  | 1         | `discNumber`                                   | R1          |
+| `0x367`                  | 1         | `discCount`                                    | R1          |
+| `0x368`                  | 4         | `saveGameId`                                   | R1          |
+| `0x36C`                  | 5         | `creatorConsoleId`                             | R4          |
+| `0x371`                  | 8         | `profileId`                                    | R4          |
+| `0x379`                  | `0x24`    | `volumeDescriptor`                             | not exposed |
+| `0x39D`                  | 4         | `dataFileCount`                                | R1          |
+| `0x3A1`                  | 8         | `dataFilesSize`                                | R1          |
+| `0x3A9`                  | 4         | `format`                                       | R1          |
+| `0x3AD`                  | 8         | `onlineCreator`                                | R1          |
+| `0x3B5`                  | 4         | `category`                                     | R1          |
+| `0x3B9`                  | `0x20`    | `reserved`                                     | not exposed |
+| `0x3D9`                  | `0x24`    | `mediaOrAvatarData`                            | R1          |
+| `0x3FD`                  | `0x14`    | `deviceId`                                     | R4          |
+| `0x411`                  | `0x900`   | `displayNames`                                 | R1          |
+| `0xD11`                  | `0x900`   | `descriptions`                                 | R1          |
+| `0x1611`                 | `0x80`    | `publisherName`                                | R1          |
+| `0x1691`                 | `0x80`    | `titleName`                                    | R1          |
+| `0x1711`                 | 1         | `transferFlags`                                | R4          |
+| `0x1712` + `0x171A`      | 4 + space | `thumbnail` (size field and image space)       | R1          |
+| `0x1716` + `0x571A`      | 4 + space | `titleThumbnail` (size field and image space)  | R1          |
+| `0x971A`                 | `0x15F4`  | `installerMetadata`, only for `0xAD0E` headers | R1          |
 
 In metadata version 2, each thumbnail's space is `0x3D00`. The freed `0x300` bytes belong to the extra languages: `0x541A`–`0x571A` to `displayNames`, and `0x941A`–`0x971A` to `descriptions`. The ranges were checked to be contiguous in all four layouts (`CON` or `LIVE`/`PIRS`, metadata version 1 or 2).
 
@@ -468,7 +476,7 @@ The full design, including the check table, is in [function-design-doc.md](funct
 
 ## 8. Spec changes made during this design
 
-- **§6.5 languages:** metadata version 2's slots 9–11 researched. Slot 10 is Polish and slot 11 Russian (✅, confirmed by the *South Park* fixture); slot 9 is Simplified Chinese (🔶). There are no slots beyond language ID 12. Sources added to §8.9.
+- **§6.5 languages:** metadata version 2's slots 9–11 researched. Slot 10 is Polish and slot 11 Russian (✅, confirmed by the _South Park_ fixture); slot 9 is Simplified Chinese (🔶). There are no slots beyond language ID 12. Sources added to §8.9.
 - **§6.5:** "a reader should skip them" (empty slots) changed to "should treat them as empty", to match keeping empty slots as `null`.
 
 ---
@@ -477,30 +485,30 @@ The full design, including the check table, is in [function-design-doc.md](funct
 
 The first `0xB000` bytes of 11 real packages, in `packages/xcontent-header/src/__tests__/fixtures/` (copied 2026-10-13; not staged or committed). Eight come from the local real-content copy (`fixtures/Content`, a symlink to `~/Documents/XboxContent/`, now in `.gitignore`), and three are the good fixtures from the old `xcontent` package:
 
-| Fixture | Covers |
-|---|---|
-| `con-971a-mv2-xna-save` | `CON`, `0x971A` header, metadata version 2, an XNA indie save |
-| `con-971a-mv0-download-in-progress` | `CON`, `0x971A`, metadata version 0, a download in progress (§4.4), no thumbnail |
-| `con-ad0e-svod-disc-install` | `CON` with a `0xAD0E` header, SVOD, a disc install |
-| `live-stfs-dlc-non-ascii` | `LIVE` STFS DLC, display name with `™` |
-| `live-stfs-mv0-title-update` | `LIVE` STFS title update, metadata version 0, display name with `®` |
-| `live-svod-god-empty-signature` | `LIVE` SVOD GOD made by a tool: all-zero signature |
-| `pirs-stfs-dlc-non-ascii` | `PIRS` STFS DLC, display name with `’` |
-| `pirs-stfs-avatar-item-no-thumbnail` | `PIRS` avatar item, thumbnail size 0 |
-| `live-stfs-dlc-halo-wars` | `LIVE` STFS DLC (old fixture, trimmed to `0xB000`) |
-| `live-svod-god-dead-island-riptide` | `LIVE` SVOD GOD (old fixture) |
-| `live-svod-god-south-park-mojibake` | `LIVE` SVOD GOD with UTF-8 stored as UTF-16BE (old fixture) |
+| Fixture                              | Covers                                                                           |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| `con-971a-mv2-xna-save`              | `CON`, `0x971A` header, metadata version 2, an XNA indie save                    |
+| `con-971a-mv0-download-in-progress`  | `CON`, `0x971A`, metadata version 0, a download in progress (§4.4), no thumbnail |
+| `con-ad0e-svod-disc-install`         | `CON` with a `0xAD0E` header, SVOD, a disc install                               |
+| `live-stfs-dlc-non-ascii`            | `LIVE` STFS DLC, display name with `™`                                           |
+| `live-stfs-mv0-title-update`         | `LIVE` STFS title update, metadata version 0, display name with `®`              |
+| `live-svod-god-empty-signature`      | `LIVE` SVOD GOD made by a tool: all-zero signature                               |
+| `pirs-stfs-dlc-non-ascii`            | `PIRS` STFS DLC, display name with `’`                                           |
+| `pirs-stfs-avatar-item-no-thumbnail` | `PIRS` avatar item, thumbnail size 0                                             |
+| `live-stfs-dlc-halo-wars`            | `LIVE` STFS DLC (old fixture, trimmed to `0xB000`)                               |
+| `live-svod-god-dead-island-riptide`  | `LIVE` SVOD GOD (old fixture)                                                    |
+| `live-svod-god-south-park-mojibake`  | `LIVE` SVOD GOD with UTF-8 stored as UTF-16BE (old fixture)                      |
 
 - **Not covered:** a non-PNG thumbnail (none in the local copy; Iso2God-made GODs on the USB drive would have one) and a profile partition package.
 - **The old `dlc-halo-reach-anniversary` fixture was dropped:** it is only `0x6000` bytes, but its header size is `0xAD0E`.
 - **Personal identifiers were removed** (2026-10-13), and replaced with obvious placeholders:
 
-  | Field | Placeholder |
-  |---|---|
-  | console IDs: certificate `0x006`, creator `0x36C`, and console licences | `0123456789` |
-  | `CON` public modulus, certificate signature and package signature | `0xA5` repeated, so the signature isn't "empty" |
-  | XUID licences' licensee data | `000000000001` |
-  | profile ID `0x371` | `0009000000000001` |
-  | device ID `0x3FD` (a drive serial number, in ASCII) | `FIXTURE0DEVICE0ID000` |
+  | Field                                                                   | Placeholder                                     |
+  | ----------------------------------------------------------------------- | ----------------------------------------------- |
+  | console IDs: certificate `0x006`, creator `0x36C`, and console licences | `0123456789`                                    |
+  | `CON` public modulus, certificate signature and package signature       | `0xA5` repeated, so the signature isn't "empty" |
+  | XUID licences' licensee data                                            | `000000000001`                                  |
+  | profile ID `0x371`                                                      | `0009000000000001`                              |
+  | device ID `0x3FD` (a drive serial number, in ASCII)                     | `FIXTURE0DEVICE0ID000`                          |
 
   Where a placeholder sits inside the content ID's range (`0x344` on), the content ID was recomputed, so every fixture still passes V1's content ID check. Signatures no longer match, but nothing verifies them. The `0x971A` `CON` fixtures were trimmed to `0xA000`, the end of their padded header, which drops the start of their data area. A search of every fixture, at every offset, found none of the original identifiers or key material. Certificate part numbers and dates were kept: they identify a hardware model and batch, not a console.

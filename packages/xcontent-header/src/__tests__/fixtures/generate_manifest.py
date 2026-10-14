@@ -2,7 +2,7 @@
 """Generates manifest.generated.ts: the expected values for every fixture in this folder.
 
 The values are computed straight from each fixture's raw bytes, using offsets
-copied from the spec (xcontent-spec2.md §6). It shares no code with the package,
+copied from the spec (docs/xcontent-specification.md §6). It shares no code with the package,
 so the tests can't confirm a package bug by repeating it.
 
 Run from this folder, after adding or changing a fixture:

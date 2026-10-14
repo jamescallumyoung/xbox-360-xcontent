@@ -1,10 +1,10 @@
 # Xbox 360 Content Specification (v2)
 
-This document describes what the Xbox 360 stores, where it stores it, and in what format. It replaces `xbox360-content-format.md` and `xbox360-content-partitions.md`. What those documents got wrong is listed in [xcontent-spec2-corrections.md](xcontent-spec2-corrections.md).
+This document describes what the Xbox 360 stores, where it stores it, and in what format. It replaces `xbox360-content-format.md` and `xbox360-content-partitions.md`. What those documents got wrong is listed in [xcontent-specification-corrections.md](xcontent-specification-corrections.md).
 
 It is written for the developers and AI agents working on `xcontent`, `xcontent-web` and the apps built on them.
 
-> **Status: complete.** All sections are written and reviewed. Some questions are still open. They are marked ❓ or 🔶 where they arise, and listed in the research record ([xcontent-spec2-research.md](xcontent-spec2-research.md)).
+> **Status: complete.** All sections are written and reviewed. Some questions are still open. They are marked ❓ or 🔶 where they arise, and listed in the research record ([xcontent-specification-research.md](xcontent-specification-research.md)).
 
 ### How confidence is marked
 
@@ -981,8 +981,8 @@ These are cited by file name below, without repeating their links.
 | **rom-properties** | https://github.com/GerbilSoft/rom-properties | File-properties tool. Xbox 360 structures are in `src/libromdata/Console/xbox360_stfs_structs.h`. |
 | **emoose/xbox-reversing** | https://github.com/emoose/xbox-reversing | Format templates (`Xbox360Container.bt`) and `stfschk` |
 | **ConsoleMods** | https://consolemods.org/wiki/ | Modding wiki. It blocked direct reading, so its pages were mostly seen in snippets. |
-| **X1 research** | [x1-research-findings.md](session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
-| **Real drives** | [xcontent-spec2-research.md](xcontent-spec2-research.md) | Primary research on real `Content/` trees (§8.3). The research record holds the method, the evidence and the open questions. |
+| **X1 research** | [x1-research-findings.md](../session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
+| **Real drives** | [xcontent-specification-research.md](xcontent-specification-research.md) | Primary research on real `Content/` trees (§8.3). The research record holds the method, the evidence and the open questions. |
 | **This repo's fixtures** | `packages/xcontent/src/parse-header/__tests__/fixtures/` | Real package headers: two GOD headers (`god-dead-island-riptide`, `god-south-park-tsot`) and two DLC packages (`dlc-halo-reach-anniversary`, `dlc-halo-wars`) |
 
 ### 8.3 Primary research
@@ -991,7 +991,7 @@ Some claims were checked directly against real drives, on 2026-10-12. ✅ The so
 - a FAT32 USB drive holding four `Content/` trees, 591 packages in all
 - a copy of part of one of those trees
 
-Every package's header was read, and the layout of every directory was checked. The method, every question asked and the questions still open are in the research record ([xcontent-spec2-research.md](xcontent-spec2-research.md)).
+Every package's header was read, and the layout of every directory was checked. The method, every question asked and the questions still open are in the research record ([xcontent-specification-research.md](xcontent-specification-research.md)).
 
 What the drives established, by section:
 

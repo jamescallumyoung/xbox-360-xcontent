@@ -9,7 +9,7 @@ Almost everything an Xbox 360 stores (games, DLC, title updates, saves, profiles
 > - **Available now:** `parseHeader`, `parseRestrictions`, `parseConsoleCertificate`, `hasEmptySignature` and the single-purpose parsers in `xcontent-header/extended`.
 > - **Still to come:** `equals` and `diff` (compare two headers), and `verifyHeaderAsync` (check a header against the format).
 
-The format is documented in the [Xbox 360 Content Specification](https://github.com/jamescallumyoung/xbox360-content-utils/blob/main/xcontent-spec2.md). Section references below (§) point to it.
+The format is documented in the [Xbox 360 Content Specification](https://github.com/jamescallumyoung/xbox360-content-utils/blob/main/docs/xcontent-specification.md). Section references below (§) point to it.
 
 ## Requirements
 
@@ -178,7 +178,6 @@ pnpm test
 ```
 
 The tests use real headers from `src/__tests__/fixtures/`, with their expected values in a generated manifest. After changing a fixture, regenerate it with `python3 generate_manifest.py > manifest.generated.ts` in that folder.
-
 
 ## Use of AI
 
