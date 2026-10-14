@@ -31,6 +31,11 @@ export { parseInstallerMetadata, parseMediaOrAvatarData } from './shared/extensi
 export { parseDescriptions, parseDisplayNames, parsePublisherName, parseTitleName } from './shared/display-strings.js';
 export { parseThumbnail, parseThumbnailSizes, parseTitleThumbnail } from './shared/thumbnails.js';
 export type { ThumbnailSizes } from './shared/thumbnails.js';
+export { parseLicences } from './shared/licences.js';
+export type { Licence, LicenseeTypeName } from './shared/licences.js';
+export { parseTransferFlags } from './shared/transfer-flags.js';
+export type { TransferFlags } from './shared/transfer-flags.js';
+export { parseCreatorConsoleId, parseDeviceId, parseProfileId } from './shared/ownership-ids.js';
 
 // The slot index of each language in parseDisplayNames' and parseDescriptions' results.
 export { LanguageSlot } from './parse/language-slot.js';

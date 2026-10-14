@@ -73,3 +73,19 @@ export const THUMBNAIL_OFFSET = 0x171a;
 export const TITLE_THUMBNAIL_OFFSET = 0x571a;
 export const THUMBNAIL_SPACE_V1 = 0x4000;
 export const THUMBNAIL_SPACE_V2 = 0x3d00;
+
+/** Licences: 16 entries of 0x10 bytes from 0x22C (§6.3). */
+export const LICENCES_OFFSET = 0x22c;
+export const LICENCE_COUNT = 16;
+export const LICENCE_LENGTH = 0x10;
+
+/** Transfer flags: 1 byte at 0x1711 (§6.4). */
+export const TRANSFER_FLAGS_OFFSET = 0x1711;
+
+/** The IDs that tie a package to a console, a profile and a storage device (§6.4). */
+export const CREATOR_CONSOLE_ID_OFFSET = 0x36c;
+export const CREATOR_CONSOLE_ID_LENGTH = 5;
+export const PROFILE_ID_OFFSET = 0x371;
+export const PROFILE_ID_LENGTH = 8;
+export const DEVICE_ID_OFFSET = 0x3fd;
+export const DEVICE_ID_LENGTH = 0x14;
