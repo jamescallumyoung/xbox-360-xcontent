@@ -17,6 +17,19 @@ export default defineConfig(
     },
   },
 
+  // Imports and exports. tsc (with verbatimModuleSyntax) already requires types to
+  // be imported and exported with `type`; these rules settle the style it leaves open.
+  {
+    rules: {
+      // One statement per module, for imports and `export ... from` alike. Mixing
+      // values and types from one module therefore uses inline `type` markers.
+      'no-duplicate-imports': ['error', { includeExports: true }],
+      // `import { type A, type B } from 'x'` leaves `import 'x'` in the output; use
+      // `import type { A, B } from 'x'` instead.
+      '@typescript-eslint/no-import-type-side-effects': 'error',
+    },
+  },
+
   // The package's entry points may only export public code, never anything in an
   // `internal/` folder.
   {
