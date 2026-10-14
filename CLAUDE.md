@@ -6,9 +6,13 @@
 
 The new package for reading and verifying a single XContent header. It replaces the header work in `xcontent`. Its design is in `xcontent-header-design-decision-record.md` and `function-design-doc.md`; the format reference is `xcontent-spec2.md`.
 
-It uses **Vertical Slice Architecture**: one slice per public function. Slices never import each other. The one exception is `src/shared/`, which holds internal code every slice needs (pre-checks, the field table, `toHex`, text decoding), and which any slice may import. `index.ts` (the root export) and `extended.ts` (`xcontent-header/extended`) are the only places that compose across slices.
+It uses **Vertical Slice Architecture**, with three verticals: `src/parse/` (R1, R4, R50, R51), `src/compare/` (R60, R61) and `src/verify/` (V1). Verticals never import each other. `src/shared/` holds code that more than one vertical needs, and any vertical may import it. `index.ts` (the root export) and `extended.ts` (`xcontent-header/extended`) are the only places that compose across verticals.
 
-Within a slice, each field or group of related fields is parsed by its own pure function, and each V1 check is its own single-purpose internal function. The library code uses only ECMAScript 2024 plus the Web APIs declared in `src/runtime.d.ts`, never Node APIs, so it runs in browsers and in Node.
+**Public and internal code are kept apart by folder.** The top-level files of a vertical (or of `shared/`) are public: an API function, or a single-purpose function exported from `/extended`. Everything else goes in `<vertical>/internal/`, and is never exported. `index.ts` and `extended.ts` must not import from any `internal/` folder (enforced by ESLint).
+
+All single-purpose field parsers live in `src/shared/`, each parsing one field or group of related fields as a pure function `(bytes) => value`. They have a precondition only (the bytes passed `precheckHeader`), and are exported from `/extended`. Each V1 check is its own single-purpose internal function, in `src/verify/internal/`. The library code uses only ECMAScript 2024 plus the Web APIs declared in `src/runtime.d.ts`, never Node APIs, so it runs in browsers and in Node.
+
+Work follows TDD: tests first, then code. Tests cite the behaviour statements in `function-design-doc.md` (for example `R1.12`).
 
 ### `xcontent` package (deprecated)
 

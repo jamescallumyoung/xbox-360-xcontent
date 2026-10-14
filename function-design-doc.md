@@ -43,7 +43,7 @@ These rules apply to every function. They belong in the package's API documentat
 
 3. **The order of reasons is not part of the contract.** When a function returns more than one reason, their order is deterministic: the same input gives the same order every time. But it may change between versions without warning, so callers must not rely on it.
 
-4. **No exceptions for bad input.** Malformed, truncated or unrelated bytes produce failure reasons, never thrown errors.
+4. **No exceptions for bad input.** For the API functions (R1 to V1), malformed, truncated or unrelated bytes produce failure reasons, never thrown errors. The single-purpose parsers in `/extended` are different: they assume their precondition holds, and may throw on unchecked input (see [The `/extended` contract](#the-extended-contract)).
 
 5. **JSDoc states the bytes each function requires,** for each header size, so callers don't have to infer it:
    - **V1:** `0xA000` bytes when the header size stored at `0x340` is `0x971A`; `0xB000` bytes when it is `0xAD0E`.
@@ -57,6 +57,20 @@ These rules apply to every function. They belong in the package's API documentat
 7. **Runtime.** The package needs ECMAScript 2024, `TextDecoder` (for text) and `globalThis.crypto.subtle` (for V1). They are declared in `src/runtime.d.ts`, not through a `dom` or `node` type library. The README is to say: "Works in browsers and any runtime that ships `globalThis.crypto.subtle` and `TextDecoder`, including Node >= 22, Deno, and Bun." `engines` is `"node": ">=22"`. Running the tests needs Node 22.12+ (Vitest 5). The package doesn't use `Temporal` or `Date`.
 
 8. **Documented APIs over hand-written code.** For example, `TextDecoder` rather than decoding UTF-16 by hand. Where no API is available yet, the code goes in a clearly named util whose JSDoc points to the API it stands in for. For example, `toHex(bytes)` stands in for `Uint8Array.prototype.toHex()`, which needs Node 25+.
+
+---
+
+## The `/extended` contract
+
+`xcontent-header/extended` exports the single-purpose field parsers and the pre-check, so callers can compose their own parsing: run `precheckHeader`, then call only the parsers they need.
+
+1. **`precheckHeader(bytes)`** runs the shared pre-checks, in order: at least 4 bytes; a magic of `CON `, `LIVE` or `PIRS`; at least `0x344` bytes; a header size of `0x971A` or `0xAD0E`; and at least that many bytes. It returns `[true, { declaredSigning, headerSize }] | [false, [PrecheckFailureReason]]`, with exactly one reason on failure.
+2. **Field parsers take `(bytes)` and return a plain value,** never a result tuple. Their precondition is that `precheckHeader(bytes)` passed. On unchecked input their behaviour is undefined, and they may throw.
+3. **Each parser returns the same value as the matching property of the API function's result,** with two exceptions:
+   - `parseContentSize` and `parseDataFilesSize` return a `bigint`, which is always exact. `parseHeader` converts it to `number`, and fails with `value-exceeds-max-safe-integer` when it doesn't fit.
+   - `parseThumbnail` and `parseTitleThumbnail` have a second precondition: the declared size must fit its space (`0x4000` in metadata version 1, `0x3D00` in version 2). Otherwise the copy would include bytes from the next field. `parseThumbnailSizes(bytes)` returns both declared sizes and the available space, so callers can check first.
+4. **JSDoc states each parser's preconditions** and the bytes it needs, per header size.
+5. **Internal code is never exported.** A vertical's top-level files are public; everything in an `internal/` folder isn't.
 
 ---
 
@@ -190,7 +204,7 @@ export const LanguageSlot = {
 
 **Text** (`displayNames`, `descriptions`, `publisherName`, `titleName`)
 
-27. Text is decoded with `TextDecoder('utf-16be')` in its default (replacement) mode (§6.5).
+27. Text is decoded with `TextDecoder('utf-16be', { ignoreBOM: true })` in its default (replacement) mode (§6.5). `ignoreBOM: true` keeps a leading U+FEFF.
 28. A string ends at the first U+0000 character. When a field holds none, the string uses the field's full width: 128 code units for a display name or description slot (`0x100` bytes), and 64 for `publisherName` and `titleName` (`0x80` bytes). U+0000 only comes from a `00 00` code unit, so a character such as "0" (`00 30`) never ends a string.
 29. A field whose first code unit is `0x0000` is `null`.
 30. Unpaired surrogates, the only way UTF-16 can be malformed, are replaced with U+FFFD (`�`). Strings returned by `parseHeader` are therefore always well-formed. The exact value of a broken code unit is not kept.

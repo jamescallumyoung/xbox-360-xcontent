@@ -44,7 +44,7 @@ Each function has an ID, used in discussion. IDs are never renumbered. When func
 - **`parse…`** for every function that decodes bytes into values. They take data already in memory, like `JSON.parse`. Unlike `JSON.parse`, they never throw on bad input: they return failure reasons (§3).
 - **`…Async`** only on V1, the only async function. There is no sync twin. The suffix marks it out from every other function, which is sync.
 - **`equals` and `diff`**, without a `headers` qualifier. Consumers can rename on import (`import { diff as diffHeaders }`).
-- **Exports:** the composite functions from the package root. The single-purpose parsers from a subpath, such as `xcontent-header/…`. Single-purpose verification checks stay internal.
+- **Exports:** the API functions from the package root. The single-purpose field parsers and `precheckHeader` from `xcontent-header/extended` (§4.7). Single-purpose verification checks stay internal.
 
 ### 2.2 How values are represented
 
@@ -88,7 +88,7 @@ Why not `{ declared, effective }` for lookups: "effective" would suggest the con
 ### 2.4 Text
 
 - **Encoding:** UTF-16BE (§6.5).
-- **Decoding uses `TextDecoder('utf-16be')`** in its default (replacement) mode, not hand-written code. Decided 2026-10-13, replacing an earlier "lossless" decision.
+- **Decoding uses `TextDecoder('utf-16be', { ignoreBOM: true })`** in its default (replacement) mode, not hand-written code. `ignoreBOM: true` keeps a leading U+FEFF, which the default would remove, so text is returned exactly as decoded (decided 2026-10-14). Decided 2026-10-13, replacing an earlier "lossless" decision.
 - **Unpaired surrogates become U+FFFD** (`�`), the standard replacement character. This is the only way UTF-16 can be malformed. The exact value of a broken code unit is lost. That was judged acceptable: nobody has needed it, U+FFFD is the well-understood standard representation, and it avoids decoding UTF-16 by hand. Strings returned by the package are therefore always well-formed.
 - **Termination:** a string ends at the first U+0000 character (found with `indexOf('\0')` on the decoded text), like a C `char16_t[]`. U+0000 only comes from a `00 00` code unit, so a character such as "0" (`00 30`) is never mistaken for the terminator. If a field has no U+0000, the string uses the field's full width.
 - **Empty fields** (first code unit `0x0000`) are `null`.
@@ -283,6 +283,15 @@ Says whether the signature is all zeros, which marks a tool-made package (§2.3)
 
 Not provided: raw signature bytes, or recognising unlocker markers such as `ByromWasHereUnlockingYourGODGame` (§4.8). Consumers can slice `0x004`–`0x104` themselves. Revisit if a real need appears.
 
+### 4.7 The `/extended` contract (decided 2026-10-14)
+
+`xcontent-header/extended` exports the single-purpose field parsers and the pre-check, so callers can compose their own parsing.
+
+- **`precheckHeader(bytes)`** runs the shared pre-checks (§3.2). It returns `[true, { declaredSigning, headerSize }] | [false, [PrecheckFailureReason]]`. Internally, V1 uses `precheckPaddedHeader`, which shares the magic and size steps but requires the padded header (`0xA000` or `0xB000` bytes). That one isn't exported.
+- **Field parsers have a precondition only.** Each takes `(bytes)` and returns a plain value, not a result tuple. They assume the caller has run `precheckHeader` and it passed. On unchecked input, their behaviour is undefined, and they may throw. So the package-wide "no exceptions for bad input" rule applies to the API functions (R1 to V1) only.
+- **`parseContentSize` and `parseDataFilesSize` return `bigint`,** which is always exact. R1 converts the value to `number`, and fails with `value-exceeds-max-safe-integer` if it doesn't fit.
+- **`parseThumbnail` and `parseTitleThumbnail`** return a copy of the declared number of image bytes (from `0x171A` or `0x571A`), or `null` when the declared size is 0. A second precondition applies: the declared size must fit its space. Otherwise the copy would include bytes from the next field. **`parseThumbnailSizes(bytes)`** returns both declared sizes and the available space, so callers can check that precondition first.
+
 ### 4.5 R60 `equals`
 
 Byte-for-byte equality of two headers, from `0x000` up to each header's size.
@@ -430,9 +439,14 @@ The full design, including the check table, is in [function-design-doc.md](funct
   - `tsconfig.test.json`: `src/` with tests, `types: ["node"]` so tests can read fixture files, no emit. Library code can never use Node APIs.
 - **Strict options** (on top of TypeScript 6+'s default `strict`): `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`, `noUnusedParameters`, `allowUnreachableCode: false`, `allowUnusedLabels: false`, `verbatimModuleSyntax`, `isolatedModules`, `isolatedDeclarations`, `erasableSyntaxOnly`, `forceConsistentCasingInFileNames`, `skipLibCheck: false`. `module: nodenext`.
 - **`package.json`:** `"type": "module"`; `"sideEffects": false` (lets bundlers drop unused modules; the package has no import-time side effects); `exports` with `types` and `default` conditions for `.` and `./extended`; `"files": ["dist", "src"]` without tests, since the source maps point at `src/`.
-- **Exports:** composite functions from the root; single-purpose parsers from `xcontent-header/extended`. V1's checks stay internal; more can be exported later if needed.
+- **Exports:** API functions from the root; single-purpose field parsers and `precheckHeader` from `xcontent-header/extended` (§4.7). V1's checks stay internal; more can be exported later if needed.
 - **Tests:** Vitest 5, with explicit imports from `vitest` (no globals).
-- **Structure:** vertical slices, one per public function, plus an internal `src/shared/` folder (pre-checks, the field table, `toHex`, text decoding) that any slice may import. Slices never import each other. `CLAUDE.md` is updated to say so.
+- **Structure (decided 2026-10-14):** three verticals, as folders: `src/parse/` (R1, R4, R50, R51), `src/compare/` (R60, R61) and `src/verify/` (V1), plus `src/shared/` for code that more than one vertical needs.
+  - **Imports:** verticals never import each other; any vertical may import `shared/`. `src/index.ts` and `src/extended.ts` are the only composition points.
+  - **Field parsers:** all single-purpose field parsers live in `src/shared/`, because compare and verify need them as well as parse.
+  - **Public and internal code are kept apart by folder.** A vertical's (or `shared/`'s) top-level files are public: an API function, or a function exported from `/extended`. Everything else goes in `<vertical>/internal/` and is never exported. An ESLint `no-restricted-imports` rule stops `index.ts` and `extended.ts` from importing any `internal/` path.
+  - **For example:** `src/shared/` holds the field parsers, `parseThumbnailSizes` and `precheckHeader`. `src/shared/internal/` holds the byte readers, `toHex`, text decoding, layout constants, `precheckPaddedHeader` and the field range table. `src/verify/internal/` holds V1's checks.
+  - `CLAUDE.md` says the same.
 - **Fixtures:** the first `0xB000` bytes of 11 real packages, in `src/__tests__/fixtures/` (see §9).
 
 ## 7. Shelved
