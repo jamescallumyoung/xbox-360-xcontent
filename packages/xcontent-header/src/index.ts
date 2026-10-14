@@ -4,7 +4,15 @@
 export { parseHeader } from './parse/parse-header.js';
 export type { Header, ParseHeaderFailureReason, ParseHeaderResult } from './parse/parse-header.js';
 export { LanguageSlot } from './parse/language-slot.js';
+export { parseRestrictions } from './parse/parse-restrictions.js';
+export type {
+  ParseRestrictionsFailureReason,
+  ParseRestrictionsResult,
+  Restrictions,
+} from './parse/parse-restrictions.js';
 
 export type { DeclaredSigning, HeaderSize, PrecheckFailureReason } from './shared/precheck-header.js';
 export type { MetadataVersion } from './shared/metadata-version.js';
 export type { Format } from './shared/format.js';
+export type { Licence, LicenseeTypeName } from './shared/licences.js';
+export type { TransferFlags } from './shared/transfer-flags.js';
