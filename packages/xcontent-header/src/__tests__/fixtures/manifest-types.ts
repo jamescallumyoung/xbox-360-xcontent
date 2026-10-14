@@ -38,7 +38,7 @@ export interface ManifestEntry {
   description: string
   fileLength: number
   magic: 'CON ' | 'LIVE' | 'PIRS'
-  /** True when the signature is all zero bytes (0x004–0x103, or 0x1AC–0x22B for CON). */
+  /** True when the signature is all zero bytes (0x004-0x103, or 0x1AC-0x22B for CON). */
   signatureAllZero: boolean
   certificate: ManifestCertificate | null
   licences: ManifestLicence[]
@@ -79,6 +79,6 @@ export interface ManifestEntry {
   transferFlags: number
   thumbnail: ManifestThumbnail | null
   titleThumbnail: ManifestThumbnail | null
-  /** SHA-1 of 0x971A–0xAD0D, or null for a 0x971A header. */
+  /** SHA-1 of 0x971A-0xAD0D, or null for a 0x971A header. */
   installerMetadataSha1: string | null
 }
