@@ -1,0 +1,18 @@
+{
+  // Type-checks the library code together with its tests and the Vitest config.
+  // Tests may use Node APIs (for example to read fixtures), so this config adds
+  // Node's types. @types/node also declares the Web APIs in src/runtime.d.ts, so
+  // that file is left out here to avoid conflicting declarations.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "declarationDir": null,
+    "declarationMap": false,
+    "isolatedDeclarations": false
+  },
+  "include": ["src", "vitest.config.ts"],
+  "exclude": ["src/runtime.d.ts"]
+}

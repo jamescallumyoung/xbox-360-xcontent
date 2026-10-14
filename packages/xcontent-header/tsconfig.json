@@ -1,0 +1,39 @@
+{
+  // Library code only. Emits JS and source maps to dist/js, and declarations and
+  // declaration maps to dist/types. Tests are type-checked by tsconfig.test.json.
+  "compilerOptions": {
+    // Runtime: ECMAScript 2024 (Node 22+), plus only the Web APIs in src/runtime.d.ts.
+    "target": "es2024",
+    "lib": ["es2024"],
+    "types": [],
+    "module": "nodenext",
+
+    // Output
+    "rootDir": "src",
+    "outDir": "dist/js",
+    "declarationDir": "dist/types",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Strictness, on top of the default "strict"
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "isolatedDeclarations": true,
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": false
+  },
+  "include": ["src"],
+  "exclude": ["src/**/__tests__"]
+}

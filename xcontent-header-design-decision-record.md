@@ -431,6 +431,7 @@ The full design, including the check table, is in [function-design-doc.md](funct
 ### 6.3 Project setup (decided 2026-10-13)
 
 - **Location:** `packages/xcontent-header/`. The name `xcontent-header` is free on npm.
+- **Licence (decided 2026-10-14):** `AGPL-3.0-only`, for `xcontent-header` only. The package has its own `LICENSE` (the GNU AGPL v3 text from gnu.org), which ships in the npm tarball. The rest of the repo isn't licensed yet.
 - **Package manager:** pnpm 12 for the whole repo, pinned with the `packageManager` field (Corepack isn't bundled with Node 25+). CI's pnpm version (`deploy.yml`, currently 11.1.3) moves to 12 too.
 - **TypeScript 7** (the native Go compiler) builds and type-checks. typescript-eslint doesn't support 7 yet, because 7.0 has no programmatic API, so TypeScript 6 is installed alongside: `"typescript": "npm:@typescript/typescript6@^6.0.2"` (used by typescript-eslint; its binary is `tsc6`) and `"@typescript/native": "npm:typescript@^7.0.2"` (binary `tsc`). Drop the alias once typescript-eslint supports 7.
 - **Linting:** typescript-eslint's strictest bundled config, `strictTypeChecked`.
