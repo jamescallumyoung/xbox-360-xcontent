@@ -63,7 +63,7 @@ describe('buildHeader', () => {
   })
 
   it('writes text as UTF-16BE code units, without a terminator', () => {
-    const bytes = buildHeader({ magic: 'LIVE' }).setUtf16(0x411, 'Hi™').bytes()
+    const bytes = buildHeader({ magic: 'LIVE' }).setUtf16(0x411, 'Hi\u2122').bytes()
     expect([...bytes.subarray(0x411, 0x419)]).toEqual([0x00, 0x48, 0x00, 0x69, 0x21, 0x22, 0x00, 0x00])
   })
 
