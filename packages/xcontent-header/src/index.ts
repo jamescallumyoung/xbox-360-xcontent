@@ -14,6 +14,13 @@ export {
   type ParseRestrictionsResult,
   type Restrictions,
 } from './parse/parse-restrictions.js';
+
+export {
+  parseConsoleCertificate,
+  type ConsoleCertificate,
+  type ParseConsoleCertificateFailureReason,
+  type ParseConsoleCertificateResult,
+} from './parse/parse-console-certificate.js';
 export {
   hasEmptySignature,
   type HasEmptySignatureFailureReason,
@@ -25,3 +32,4 @@ export type { MetadataVersion } from './shared/metadata-version.js';
 export type { Format } from './shared/format.js';
 export type { Licence, LicenseeTypeName } from './shared/licences.js';
 export type { TransferFlags } from './shared/transfer-flags.js';
+export type { ConsoleType } from './shared/console-certificate.js';
