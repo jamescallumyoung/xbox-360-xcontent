@@ -13,13 +13,15 @@ import {
   parseVersion,
 } from '../shared/execution-info.js';
 import { parseInstallerMetadata, parseMediaOrAvatarData } from '../shared/extension-data.js';
-import type { Format } from '../shared/format.js';
-import { parseFormat } from '../shared/format.js';
+import { type Format, parseFormat } from '../shared/format.js';
 import { parseContentId } from '../shared/header-info.js';
-import type { MetadataVersion } from '../shared/metadata-version.js';
-import { parseMetadataVersion } from '../shared/metadata-version.js';
-import type { DeclaredSigning, HeaderSize, PrecheckFailureReason } from '../shared/precheck-header.js';
-import { precheckHeader } from '../shared/precheck-header.js';
+import { type MetadataVersion, parseMetadataVersion } from '../shared/metadata-version.js';
+import {
+  type DeclaredSigning,
+  type HeaderSize,
+  type PrecheckFailureReason,
+  precheckHeader,
+} from '../shared/precheck-header.js';
 import { parseContentSize, parseDataFileCount, parseDataFilesSize } from '../shared/sizes.js';
 import { parseThumbnail, parseThumbnailSizes, parseTitleThumbnail } from '../shared/thumbnails.js';
 

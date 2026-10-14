@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { manifest } from '../../__tests__/fixtures/manifest.generated.js';
 import { buildHeader } from '../../__tests__/helpers/header-builder.js';
 import { FIXTURE_NAMES, loadFixture } from '../../__tests__/helpers/load-fixture.js';
-import type { Restrictions } from '../parse-restrictions.js';
-import { parseRestrictions } from '../parse-restrictions.js';
+import { type Restrictions, parseRestrictions } from '../parse-restrictions.js';
 
 const ascii = (text: string): Uint8Array => Uint8Array.from(text, (c) => c.charCodeAt(0));
 

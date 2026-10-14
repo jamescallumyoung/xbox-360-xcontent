@@ -1,10 +1,7 @@
-import type { Licence } from '../shared/licences.js';
-import { parseLicences } from '../shared/licences.js';
+import { type Licence, parseLicences } from '../shared/licences.js';
 import { parseCreatorConsoleId, parseDeviceId, parseProfileId } from '../shared/ownership-ids.js';
-import type { PrecheckFailureReason } from '../shared/precheck-header.js';
-import { precheckHeader } from '../shared/precheck-header.js';
-import type { TransferFlags } from '../shared/transfer-flags.js';
-import { parseTransferFlags } from '../shared/transfer-flags.js';
+import { type PrecheckFailureReason, precheckHeader } from '../shared/precheck-header.js';
+import { type TransferFlags, parseTransferFlags } from '../shared/transfer-flags.js';
 
 /** What a header says about who may use a package, and how it may be moved. */
 export interface Restrictions {

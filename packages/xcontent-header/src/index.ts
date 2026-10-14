@@ -1,14 +1,18 @@
 // xcontent-header: read, compare and verify Xbox 360 package headers.
 // The main API is here. The single-purpose field parsers are in `xcontent-header/extended`.
 
-export { parseHeader } from './parse/parse-header.js';
-export type { Header, ParseHeaderFailureReason, ParseHeaderResult } from './parse/parse-header.js';
+export {
+  parseHeader,
+  type Header,
+  type ParseHeaderFailureReason,
+  type ParseHeaderResult,
+} from './parse/parse-header.js';
 export { LanguageSlot } from './parse/language-slot.js';
-export { parseRestrictions } from './parse/parse-restrictions.js';
-export type {
-  ParseRestrictionsFailureReason,
-  ParseRestrictionsResult,
-  Restrictions,
+export {
+  parseRestrictions,
+  type ParseRestrictionsFailureReason,
+  type ParseRestrictionsResult,
+  type Restrictions,
 } from './parse/parse-restrictions.js';
 
 export type { DeclaredSigning, HeaderSize, PrecheckFailureReason } from './shared/precheck-header.js';

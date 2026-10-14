@@ -3,8 +3,7 @@ import { manifest } from '../../__tests__/fixtures/manifest.generated.js';
 import { buildHeader } from '../../__tests__/helpers/header-builder.js';
 import { FIXTURE_NAMES, loadFixture } from '../../__tests__/helpers/load-fixture.js';
 import { hexOf, sha1Hex } from '../../__tests__/helpers/sha1.js';
-import type { Header } from '../parse-header.js';
-import { parseHeader } from '../parse-header.js';
+import { type Header, parseHeader } from '../parse-header.js';
 
 const ascii = (text: string): Uint8Array => Uint8Array.from(text, (c) => c.charCodeAt(0));
 
