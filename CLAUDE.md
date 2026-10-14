@@ -14,6 +14,8 @@ All single-purpose field parsers live in `src/shared/`, each parsing one field o
 
 Work follows TDD: tests first, then code. Tests cite the behaviour statements in `function-design-doc.md` (for example `R1.12`).
 
+Code is formatted with Prettier, configured in the package only (`printWidth` 120, single quotes, semicolons). Run `pnpm format` in `packages/xcontent-header` before finishing; `pnpm format:check` is part of the checks. Generated files are named `*.generated.ts`, start with an `@generated` comment, and aren't formatted.
+
 ### `xcontent` package (deprecated)
 
 The `xcontent` package uses **Vertical Slice Architecture**. Each vertical is self-contained and has no dependencies on other verticals. `index.ts` is the only place that composes across verticals.

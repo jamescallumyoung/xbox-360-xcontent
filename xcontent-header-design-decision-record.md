@@ -435,6 +435,8 @@ The full design, including the check table, is in [function-design-doc.md](funct
 - **Package manager:** pnpm 12 for the whole repo, pinned with the `packageManager` field (Corepack isn't bundled with Node 25+). CI's pnpm version (`deploy.yml`, currently 11.1.3) moves to 12 too.
 - **TypeScript 7** (the native Go compiler) builds and type-checks. typescript-eslint doesn't support 7 yet, because 7.0 has no programmatic API, so TypeScript 6 is installed alongside: `"typescript": "npm:@typescript/typescript6@^6.0.2"` (used by typescript-eslint; its binary is `tsc6`) and `"@typescript/native": "npm:typescript@^7.0.2"` (binary `tsc`). Drop the alias once typescript-eslint supports 7.
 - **Linting:** typescript-eslint's strictest bundled config, `strictTypeChecked`.
+- **Formatting (decided 2026-10-14):** Prettier 3.9, still the most widely used formatter (Biome and oxfmt are gaining ground, mainly on speed). It applies to `xcontent-header` only, and to every file type Prettier supports there. Config: `printWidth: 120`, `singleQuote: true`, `arrowParens: 'always'`; otherwise Prettier's defaults (semicolons, trailing commas `all`). `format:check` is part of the gate.
+- **Generated files** are named `*.generated.ts`, start with an `@generated` header comment, are marked `linguist-generated` in the package's `.gitattributes` (so GitHub collapses them in pull request diffs), and are skipped by Prettier.
 - **Two tsconfigs:**
   - `tsconfig.json`: `src/` without tests, `types: []`, emits JS and source maps to `dist/js/`, and `.d.ts` and declaration maps to `dist/types/`.
   - `tsconfig.test.json`: `src/` with tests, `types: ["node"]` so tests can read fixture files, no emit. Library code can never use Node APIs.
