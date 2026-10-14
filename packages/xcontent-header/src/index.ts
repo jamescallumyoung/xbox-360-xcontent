@@ -14,6 +14,11 @@ export {
   type ParseRestrictionsResult,
   type Restrictions,
 } from './parse/parse-restrictions.js';
+export {
+  hasEmptySignature,
+  type HasEmptySignatureFailureReason,
+  type HasEmptySignatureResult,
+} from './parse/has-empty-signature.js';
 
 export type { DeclaredSigning, HeaderSize, PrecheckFailureReason } from './shared/precheck-header.js';
 export type { MetadataVersion } from './shared/metadata-version.js';
