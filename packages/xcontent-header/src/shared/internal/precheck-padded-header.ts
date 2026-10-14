@@ -1,6 +1,6 @@
-import type { PrecheckResult } from '../precheck-header.js'
-import { HEADER_SIZE_STANDARD, PADDED_LENGTH_INSTALLER, PADDED_LENGTH_STANDARD } from './layout.js'
-import { runPrechecks } from './prechecks.js'
+import type { PrecheckResult } from '../precheck-header.js';
+import { HEADER_SIZE_STANDARD, PADDED_LENGTH_INSTALLER, PADDED_LENGTH_STANDARD } from './layout.js';
+import { runPrechecks } from './prechecks.js';
 
 /**
  * Runs the same pre-checks as `precheckHeader`, but requires the padded header.
@@ -12,6 +12,7 @@ import { runPrechecks } from './prechecks.js'
  * up to the end of the padded header, not just up to the header size (spec §6.3).
  */
 export function precheckPaddedHeader(bytes: Uint8Array): PrecheckResult {
-  return runPrechecks(bytes, headerSize =>
-    headerSize === HEADER_SIZE_STANDARD ? PADDED_LENGTH_STANDARD : PADDED_LENGTH_INSTALLER)
+  return runPrechecks(bytes, (headerSize) =>
+    headerSize === HEADER_SIZE_STANDARD ? PADDED_LENGTH_STANDARD : PADDED_LENGTH_INSTALLER,
+  );
 }

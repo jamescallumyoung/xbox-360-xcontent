@@ -1,12 +1,12 @@
-import { readU32 } from './internal/bytes.js'
-import { VOLUME_TYPE_OFFSET } from './internal/layout.js'
+import { readU32 } from './internal/bytes.js';
+import { VOLUME_TYPE_OFFSET } from './internal/layout.js';
 
 /** The package format: the volume type as stored, and what it means. */
 export interface Format {
   /** The volume type stored at 0x3A9. */
-  raw: number
+  raw: number;
   /** 'stfs' for 0, 'svod' for 1, and 'unknown' for anything else. */
-  decoded: 'stfs' | 'svod' | 'unknown'
+  decoded: 'stfs' | 'svod' | 'unknown';
 }
 
 /**
@@ -20,6 +20,6 @@ export interface Format {
  * the presence of a .data folder (spec §6.9).
  */
 export function parseFormat(bytes: Uint8Array): Format {
-  const raw = readU32(bytes, VOLUME_TYPE_OFFSET)
-  return { raw, decoded: raw === 0 ? 'stfs' : raw === 1 ? 'svod' : 'unknown' }
+  const raw = readU32(bytes, VOLUME_TYPE_OFFSET);
+  return { raw, decoded: raw === 0 ? 'stfs' : raw === 1 ? 'svod' : 'unknown' };
 }

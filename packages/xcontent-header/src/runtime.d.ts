@@ -8,20 +8,20 @@
 declare global {
   /** Decodes text, used for every text field in a header. */
   interface TextDecoder {
-    decode(input?: Uint8Array): string
+    decode(input?: Uint8Array): string;
   }
 
   var TextDecoder: {
-    prototype: TextDecoder
-    new (label?: string, options?: { fatal?: boolean; ignoreBOM?: boolean }): TextDecoder
-  }
+    prototype: TextDecoder;
+    new (label?: string, options?: { fatal?: boolean; ignoreBOM?: boolean }): TextDecoder;
+  };
 
   /** Web Crypto, used only by verifyHeaderAsync to hash the header. */
   var crypto: {
     readonly subtle: {
-      digest(algorithm: 'SHA-1', data: Uint8Array): Promise<ArrayBuffer>
-    }
-  }
+      digest(algorithm: 'SHA-1', data: Uint8Array): Promise<ArrayBuffer>;
+    };
+  };
 }
 
-export {}
+export {};

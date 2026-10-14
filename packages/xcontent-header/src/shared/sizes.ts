@@ -1,5 +1,5 @@
-import { readU32, readU64 } from './internal/bytes.js'
-import { CONTENT_SIZE_OFFSET, DATA_FILE_COUNT_OFFSET, DATA_FILES_SIZE_OFFSET } from './internal/layout.js'
+import { readU32, readU64 } from './internal/bytes.js';
+import { CONTENT_SIZE_OFFSET, DATA_FILE_COUNT_OFFSET, DATA_FILES_SIZE_OFFSET } from './internal/layout.js';
 
 /**
  * Returns the content size at 0x34C, exactly, as a bigint.
@@ -11,7 +11,7 @@ import { CONTENT_SIZE_OFFSET, DATA_FILE_COUNT_OFFSET, DATA_FILES_SIZE_OFFSET } f
  * it's larger than Number.MAX_SAFE_INTEGER.
  */
 export function parseContentSize(bytes: Uint8Array): bigint {
-  return readU64(bytes, CONTENT_SIZE_OFFSET)
+  return readU64(bytes, CONTENT_SIZE_OFFSET);
 }
 
 /**
@@ -24,7 +24,7 @@ export function parseContentSize(bytes: Uint8Array): bigint {
  * It's 0 for STFS packages (spec §6.4).
  */
 export function parseDataFileCount(bytes: Uint8Array): number {
-  return readU32(bytes, DATA_FILE_COUNT_OFFSET)
+  return readU32(bytes, DATA_FILE_COUNT_OFFSET);
 }
 
 /**
@@ -38,5 +38,5 @@ export function parseDataFileCount(bytes: Uint8Array): number {
  * it's larger than Number.MAX_SAFE_INTEGER.
  */
 export function parseDataFilesSize(bytes: Uint8Array): bigint {
-  return readU64(bytes, DATA_FILES_SIZE_OFFSET)
+  return readU64(bytes, DATA_FILES_SIZE_OFFSET);
 }

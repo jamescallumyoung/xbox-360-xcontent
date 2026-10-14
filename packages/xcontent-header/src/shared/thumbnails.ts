@@ -1,4 +1,4 @@
-import { copyBytes, readU32 } from './internal/bytes.js'
+import { copyBytes, readU32 } from './internal/bytes.js';
 import {
   THUMBNAIL_OFFSET,
   THUMBNAIL_SIZE_OFFSET,
@@ -6,17 +6,17 @@ import {
   THUMBNAIL_SPACE_V2,
   TITLE_THUMBNAIL_OFFSET,
   TITLE_THUMBNAIL_SIZE_OFFSET,
-} from './internal/layout.js'
-import { parseMetadataVersion } from './metadata-version.js'
+} from './internal/layout.js';
+import { parseMetadataVersion } from './metadata-version.js';
 
 /** The declared size of each thumbnail, and the space available to each. */
 export interface ThumbnailSizes {
   /** The thumbnail's declared size, at 0x1712. */
-  thumbnail: number
+  thumbnail: number;
   /** The title thumbnail's declared size, at 0x1716. */
-  titleThumbnail: number
+  titleThumbnail: number;
   /** The space each thumbnail has: 0x4000 in metadata version 1, 0x3D00 in version 2. */
-  availableSpace: number
+  availableSpace: number;
 }
 
 /**
@@ -35,7 +35,7 @@ export function parseThumbnailSizes(bytes: Uint8Array): ThumbnailSizes {
     thumbnail: readU32(bytes, THUMBNAIL_SIZE_OFFSET),
     titleThumbnail: readU32(bytes, TITLE_THUMBNAIL_SIZE_OFFSET),
     availableSpace: parseMetadataVersion(bytes).effective === 2 ? THUMBNAIL_SPACE_V2 : THUMBNAIL_SPACE_V1,
-  }
+  };
 }
 
 /**
@@ -52,8 +52,8 @@ export function parseThumbnailSizes(bytes: Uint8Array): ThumbnailSizes {
  * returned as they are, without checking they're a PNG.
  */
 export function parseThumbnail(bytes: Uint8Array): Uint8Array | null {
-  const size = readU32(bytes, THUMBNAIL_SIZE_OFFSET)
-  return size === 0 ? null : copyBytes(bytes, THUMBNAIL_OFFSET, size)
+  const size = readU32(bytes, THUMBNAIL_SIZE_OFFSET);
+  return size === 0 ? null : copyBytes(bytes, THUMBNAIL_OFFSET, size);
 }
 
 /**
@@ -70,6 +70,6 @@ export function parseThumbnail(bytes: Uint8Array): Uint8Array | null {
  * returned as they are, without checking they're a PNG.
  */
 export function parseTitleThumbnail(bytes: Uint8Array): Uint8Array | null {
-  const size = readU32(bytes, TITLE_THUMBNAIL_SIZE_OFFSET)
-  return size === 0 ? null : copyBytes(bytes, TITLE_THUMBNAIL_OFFSET, size)
+  const size = readU32(bytes, TITLE_THUMBNAIL_SIZE_OFFSET);
+  return size === 0 ? null : copyBytes(bytes, TITLE_THUMBNAIL_OFFSET, size);
 }

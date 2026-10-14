@@ -1,5 +1,5 @@
-import type { DeclaredSigning } from './precheck-header.js'
-import { signingForMagic } from './internal/magic.js'
+import type { DeclaredSigning } from './precheck-header.js';
+import { signingForMagic } from './internal/magic.js';
 
 /**
  * Returns the signing type the header claims: `CON`, `LIVE` or `PIRS`.
@@ -12,7 +12,7 @@ import { signingForMagic } from './internal/magic.js'
  * (spec §2.3).
  */
 export function parseDeclaredSigning(bytes: Uint8Array): DeclaredSigning {
-  const signing = signingForMagic(bytes)
-  if (signing === undefined) throw new RangeError('The magic is not CON, LIVE or PIRS: run precheckHeader first.')
-  return signing
+  const signing = signingForMagic(bytes);
+  if (signing === undefined) throw new RangeError('The magic is not CON, LIVE or PIRS: run precheckHeader first.');
+  return signing;
 }

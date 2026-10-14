@@ -18,7 +18,7 @@ export const LanguageSlot = {
   Portuguese: 8,
   Polish: 10,
   Russian: 11,
-} as const
+} as const;
 
 /** The slot index of a language with a confirmed slot: one of `LanguageSlot`'s values. */
-export type LanguageSlot = (typeof LanguageSlot)[keyof typeof LanguageSlot]
+export type LanguageSlot = (typeof LanguageSlot)[keyof typeof LanguageSlot];

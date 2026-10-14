@@ -9,19 +9,20 @@ import {
   NAME_FIELD_LENGTH,
   PUBLISHER_NAME_OFFSET,
   TITLE_NAME_OFFSET,
-} from './internal/layout.js'
-import { decodeUtf16Field } from './internal/text.js'
-import { parseMetadataVersion } from './metadata-version.js'
+} from './internal/layout.js';
+import { decodeUtf16Field } from './internal/text.js';
+import { parseMetadataVersion } from './metadata-version.js';
 
 /** Reads every language slot: slots 0-8 from `baseOffset`, plus 9-11 from `extraOffset` in version 2. */
 const readLanguageSlots = (bytes: Uint8Array, baseOffset: number, extraOffset: number): (string | null)[] => {
-  const slot = (offset: number, index: number) => decodeUtf16Field(bytes, offset + index * LANGUAGE_SLOT_LENGTH, LANGUAGE_SLOT_LENGTH)
-  const slots = Array.from({ length: BASE_LANGUAGE_SLOTS }, (_, i) => slot(baseOffset, i))
+  const slot = (offset: number, index: number) =>
+    decodeUtf16Field(bytes, offset + index * LANGUAGE_SLOT_LENGTH, LANGUAGE_SLOT_LENGTH);
+  const slots = Array.from({ length: BASE_LANGUAGE_SLOTS }, (_, i) => slot(baseOffset, i));
   if (parseMetadataVersion(bytes).effective === 2) {
-    slots.push(...Array.from({ length: EXTRA_LANGUAGE_SLOTS }, (_, i) => slot(extraOffset, i)))
+    slots.push(...Array.from({ length: EXTRA_LANGUAGE_SLOTS }, (_, i) => slot(extraOffset, i)));
   }
-  return slots
-}
+  return slots;
+};
 
 /**
  * Returns the display name in each language slot: 9 slots, or 12 in metadata
@@ -36,7 +37,7 @@ const readLanguageSlots = (bytes: Uint8Array, baseOffset: number, extraOffset: n
  * UTF-16BE: unpaired surrogates become U+FFFD, and nothing else is repaired.
  */
 export function parseDisplayNames(bytes: Uint8Array): (string | null)[] {
-  return readLanguageSlots(bytes, DISPLAY_NAMES_OFFSET, EXTRA_DISPLAY_NAMES_OFFSET)
+  return readLanguageSlots(bytes, DISPLAY_NAMES_OFFSET, EXTRA_DISPLAY_NAMES_OFFSET);
 }
 
 /**
@@ -50,7 +51,7 @@ export function parseDisplayNames(bytes: Uint8Array): (string | null)[] {
  * at 0xD11; version 2's slots 9-11 are at 0x941A (spec §6.5).
  */
 export function parseDescriptions(bytes: Uint8Array): (string | null)[] {
-  return readLanguageSlots(bytes, DESCRIPTIONS_OFFSET, EXTRA_DESCRIPTIONS_OFFSET)
+  return readLanguageSlots(bytes, DESCRIPTIONS_OFFSET, EXTRA_DESCRIPTIONS_OFFSET);
 }
 
 /**
@@ -62,7 +63,7 @@ export function parseDescriptions(bytes: Uint8Array): (string | null)[] {
  * It's up to 64 UTF-16BE code units (0x80 bytes).
  */
 export function parsePublisherName(bytes: Uint8Array): string | null {
-  return decodeUtf16Field(bytes, PUBLISHER_NAME_OFFSET, NAME_FIELD_LENGTH)
+  return decodeUtf16Field(bytes, PUBLISHER_NAME_OFFSET, NAME_FIELD_LENGTH);
 }
 
 /**
@@ -74,5 +75,5 @@ export function parsePublisherName(bytes: Uint8Array): string | null {
  * It's up to 64 UTF-16BE code units (0x80 bytes).
  */
 export function parseTitleName(bytes: Uint8Array): string | null {
-  return decodeUtf16Field(bytes, TITLE_NAME_OFFSET, NAME_FIELD_LENGTH)
+  return decodeUtf16Field(bytes, TITLE_NAME_OFFSET, NAME_FIELD_LENGTH);
 }

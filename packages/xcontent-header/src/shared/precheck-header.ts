@@ -1,21 +1,20 @@
-import { runPrechecks } from './internal/prechecks.js'
+import { runPrechecks } from './internal/prechecks.js';
 
 /** The signing type a header's magic declares: `CON `, `LIVE` or `PIRS`, without the trailing space. */
-export type DeclaredSigning = 'CON' | 'LIVE' | 'PIRS'
+export type DeclaredSigning = 'CON' | 'LIVE' | 'PIRS';
 
 /** The two valid header sizes: 0x971A, and 0xAD0E for headers with installer metadata. */
-export type HeaderSize = 0x971a | 0xad0e
+export type HeaderSize = 0x971a | 0xad0e;
 
 /** Why the pre-checks failed. Every API function reports these the same way. */
 export type PrecheckFailureReason =
   | { kind: 'insufficient-bytes'; needed: number; got: number }
   | { kind: 'not-a-package' }
-  | { kind: 'header-size-invalid'; declared: number }
+  | { kind: 'header-size-invalid'; declared: number };
 
 /** What the pre-checks found: the declared signing and header size, or the one reason they failed. */
 export type PrecheckResult =
-  | [true, { declaredSigning: DeclaredSigning; headerSize: HeaderSize }]
-  | [false, [PrecheckFailureReason]]
+  [true, { declaredSigning: DeclaredSigning; headerSize: HeaderSize }] | [false, [PrecheckFailureReason]];
 
 /**
  * Checks that bytes hold a whole package header, before anything else reads it.
@@ -36,5 +35,5 @@ export type PrecheckResult =
  * before any field parser in `xcontent-header/extended`: they assume it passed.
  */
 export function precheckHeader(bytes: Uint8Array): PrecheckResult {
-  return runPrechecks(bytes, headerSize => headerSize)
+  return runPrechecks(bytes, (headerSize) => headerSize);
 }

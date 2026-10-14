@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { LanguageSlot } from '../language-slot.js'
+import { describe, expect, it } from 'vitest';
+import { LanguageSlot } from '../language-slot.js';
 
 describe('LanguageSlot (R1.35)', () => {
   it('maps each confirmed language to its slot index', () => {
@@ -15,10 +15,10 @@ describe('LanguageSlot (R1.35)', () => {
       Portuguese: 8,
       Polish: 10,
       Russian: 11,
-    })
-  })
+    });
+  });
 
   it('has no entry for slot 9, whose language is not confirmed', () => {
-    expect(Object.values(LanguageSlot)).not.toContain(9)
-  })
-})
+    expect(Object.values(LanguageSlot)).not.toContain(9);
+  });
+});

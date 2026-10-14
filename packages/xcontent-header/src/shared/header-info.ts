@@ -1,7 +1,7 @@
-import type { HeaderSize } from './precheck-header.js'
-import { readU32 } from './internal/bytes.js'
-import { CONTENT_ID_LENGTH, CONTENT_ID_OFFSET, HEADER_SIZE_OFFSET } from './internal/layout.js'
-import { toHex } from './internal/to-hex.js'
+import type { HeaderSize } from './precheck-header.js';
+import { readU32 } from './internal/bytes.js';
+import { CONTENT_ID_LENGTH, CONTENT_ID_OFFSET, HEADER_SIZE_OFFSET } from './internal/layout.js';
+import { toHex } from './internal/to-hex.js';
 
 /**
  * Returns the content ID at 0x32C, as 40 uppercase hex digits.
@@ -13,7 +13,7 @@ import { toHex } from './internal/to-hex.js'
  * §6.3). It doesn't cover the licences.
  */
 export function parseContentId(bytes: Uint8Array): string {
-  return toHex(bytes.subarray(CONTENT_ID_OFFSET, CONTENT_ID_OFFSET + CONTENT_ID_LENGTH))
+  return toHex(bytes.subarray(CONTENT_ID_OFFSET, CONTENT_ID_OFFSET + CONTENT_ID_LENGTH));
 }
 
 /**
@@ -26,5 +26,5 @@ export function parseContentId(bytes: Uint8Array): string {
  * It's the header's length in bytes, from 0x000 (spec §6.1).
  */
 export function parseHeaderSize(bytes: Uint8Array): HeaderSize {
-  return readU32(bytes, HEADER_SIZE_OFFSET) as HeaderSize
+  return readU32(bytes, HEADER_SIZE_OFFSET) as HeaderSize;
 }

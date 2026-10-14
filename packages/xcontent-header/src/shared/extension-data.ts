@@ -1,13 +1,13 @@
-import { copyBytes } from './internal/bytes.js'
+import { copyBytes } from './internal/bytes.js';
 import {
   HEADER_SIZE_INSTALLER,
   INSTALLER_METADATA_LENGTH,
   INSTALLER_METADATA_OFFSET,
   MEDIA_OR_AVATAR_DATA_LENGTH,
   MEDIA_OR_AVATAR_DATA_OFFSET,
-} from './internal/layout.js'
-import { parseHeaderSize } from './header-info.js'
-import { parseMetadataVersion } from './metadata-version.js'
+} from './internal/layout.js';
+import { parseHeaderSize } from './header-info.js';
+import { parseMetadataVersion } from './metadata-version.js';
 
 /**
  * Returns a copy of the 0x24 bytes at 0x3D9, or null in metadata version 1, where
@@ -20,8 +20,8 @@ import { parseMetadataVersion } from './metadata-version.js'
  * (spec §6.4). The spec doesn't say how to tell which, so they're returned raw.
  */
 export function parseMediaOrAvatarData(bytes: Uint8Array): Uint8Array | null {
-  if (parseMetadataVersion(bytes).effective !== 2) return null
-  return copyBytes(bytes, MEDIA_OR_AVATAR_DATA_OFFSET, MEDIA_OR_AVATAR_DATA_LENGTH)
+  if (parseMetadataVersion(bytes).effective !== 2) return null;
+  return copyBytes(bytes, MEDIA_OR_AVATAR_DATA_OFFSET, MEDIA_OR_AVATAR_DATA_LENGTH);
 }
 
 /**
@@ -35,6 +35,6 @@ export function parseMediaOrAvatarData(bytes: Uint8Array): Uint8Array | null {
  * no layout for it, so it's returned raw.
  */
 export function parseInstallerMetadata(bytes: Uint8Array): Uint8Array | null {
-  if (parseHeaderSize(bytes) !== HEADER_SIZE_INSTALLER) return null
-  return copyBytes(bytes, INSTALLER_METADATA_OFFSET, INSTALLER_METADATA_LENGTH)
+  if (parseHeaderSize(bytes) !== HEADER_SIZE_INSTALLER) return null;
+  return copyBytes(bytes, INSTALLER_METADATA_OFFSET, INSTALLER_METADATA_LENGTH);
 }

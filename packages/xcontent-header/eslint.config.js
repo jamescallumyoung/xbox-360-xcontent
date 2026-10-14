@@ -1,5 +1,5 @@
-import { defineConfig } from 'eslint/config'
-import tseslint from 'typescript-eslint'
+import { defineConfig } from 'eslint/config';
+import tseslint from 'typescript-eslint';
 
 export default defineConfig(
   { ignores: ['dist', 'eslint.config.js'] },
@@ -22,12 +22,17 @@ export default defineConfig(
   {
     files: ['src/index.ts', 'src/extended.ts'],
     rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [{
-          group: ['**/internal', '**/internal/**'],
-          message: 'Entry points must not export internal code.',
-        }],
-      }],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/internal', '**/internal/**'],
+              message: 'Entry points must not export internal code.',
+            },
+          ],
+        },
+      ],
     },
   },
-)
+);

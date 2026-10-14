@@ -1,5 +1,5 @@
-import { readU32 } from './internal/bytes.js'
-import { CONTENT_TYPE_OFFSET } from './internal/layout.js'
+import { readU32 } from './internal/bytes.js';
+import { CONTENT_TYPE_OFFSET } from './internal/layout.js';
 
 /**
  * Returns the content type the header claims, at 0x344, as a number.
@@ -12,5 +12,5 @@ import { CONTENT_TYPE_OFFSET } from './internal/layout.js'
  * disagree with it (spec §7.2).
  */
 export function parseDeclaredContentType(bytes: Uint8Array): number {
-  return readU32(bytes, CONTENT_TYPE_OFFSET)
+  return readU32(bytes, CONTENT_TYPE_OFFSET);
 }
