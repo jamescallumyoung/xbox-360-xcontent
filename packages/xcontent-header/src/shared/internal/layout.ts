@@ -89,3 +89,24 @@ export const PROFILE_ID_OFFSET = 0x371;
 export const PROFILE_ID_LENGTH = 8;
 export const DEVICE_ID_OFFSET = 0x3fd;
 export const DEVICE_ID_LENGTH = 0x14;
+
+/** A CON package's console certificate (§6.2). */
+export const PUBLIC_KEY_CERTIFICATE_SIZE_OFFSET = 0x004;
+export const OWNER_CONSOLE_ID_OFFSET = 0x006;
+export const OWNER_CONSOLE_ID_LENGTH = 5;
+export const CONSOLE_PART_NUMBER_OFFSET = 0x00b;
+export const CONSOLE_PART_NUMBER_LENGTH = 0x14;
+export const CONSOLE_TYPE_OFFSET = 0x01f;
+export const CERTIFICATE_DATE_OFFSET = 0x020;
+export const CERTIFICATE_DATE_LENGTH = 8;
+export const PUBLIC_EXPONENT_OFFSET = 0x028;
+export const PUBLIC_MODULUS_OFFSET = 0x02c;
+export const PUBLIC_MODULUS_LENGTH = 0x80;
+export const CERTIFICATE_SIGNATURE_OFFSET = 0x0ac;
+export const CERTIFICATE_SIGNATURE_LENGTH = 0x100;
+
+/** The signature: a CON package's own signature after its certificate, or Microsoft's for LIVE and PIRS (§6.2). */
+export const CON_SIGNATURE_OFFSET = 0x1ac;
+export const CON_SIGNATURE_LENGTH = 0x80;
+export const MICROSOFT_SIGNATURE_OFFSET = 0x004;
+export const MICROSOFT_SIGNATURE_LENGTH = 0x100;

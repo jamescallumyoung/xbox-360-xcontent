@@ -36,6 +36,18 @@ export { parseThumbnail, parseThumbnailSizes, parseTitleThumbnail, type Thumbnai
 export { parseLicences, type Licence, type LicenseeTypeName } from './shared/licences.js';
 export { parseTransferFlags, type TransferFlags } from './shared/transfer-flags.js';
 export { parseCreatorConsoleId, parseDeviceId, parseProfileId } from './shared/ownership-ids.js';
+export {
+  parseCertificateDate,
+  parseCertificateSignature,
+  parseConsolePartNumber,
+  parseConsoleType,
+  parseOwnerConsoleId,
+  parsePublicExponent,
+  parsePublicKeyCertificateSize,
+  parsePublicModulus,
+  type ConsoleType,
+} from './shared/console-certificate.js';
+export { isSignatureEmpty } from './shared/signature.js';
 
 // The slot index of each language in parseDisplayNames' and parseDescriptions' results.
 export { LanguageSlot } from './parse/language-slot.js';
