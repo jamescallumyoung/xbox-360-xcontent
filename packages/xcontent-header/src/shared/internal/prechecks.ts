@@ -1,20 +1,13 @@
-import type { DeclaredSigning, HeaderSize, PrecheckResult } from '../precheck-header.js'
+import type { HeaderSize, PrecheckResult } from '../precheck-header.js'
 import { readU32 } from './bytes.js'
-import { decodeLatin1Field } from './text.js'
 import {
   HEADER_SIZE_END,
   HEADER_SIZE_INSTALLER,
   HEADER_SIZE_OFFSET,
   HEADER_SIZE_STANDARD,
   MAGIC_LENGTH,
-  MAGIC_OFFSET,
 } from './layout.js'
-
-const SIGNING_BY_MAGIC: Partial<Record<string, DeclaredSigning>> = {
-  'CON ': 'CON',
-  LIVE: 'LIVE',
-  PIRS: 'PIRS',
-}
+import { signingForMagic } from './magic.js'
 
 const isHeaderSize = (value: number): value is HeaderSize =>
   value === HEADER_SIZE_STANDARD || value === HEADER_SIZE_INSTALLER
@@ -31,7 +24,7 @@ export function runPrechecks(bytes: Uint8Array, requiredLength: (headerSize: Hea
 
   if (got < MAGIC_LENGTH) return [false, [{ kind: 'insufficient-bytes', needed: MAGIC_LENGTH, got }]]
 
-  const declaredSigning = SIGNING_BY_MAGIC[decodeLatin1Field(bytes, MAGIC_OFFSET, MAGIC_LENGTH)]
+  const declaredSigning = signingForMagic(bytes)
   if (declaredSigning === undefined) return [false, [{ kind: 'not-a-package' }]]
 
   if (got < HEADER_SIZE_END) return [false, [{ kind: 'insufficient-bytes', needed: HEADER_SIZE_END, got }]]
