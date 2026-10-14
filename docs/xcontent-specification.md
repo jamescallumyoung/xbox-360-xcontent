@@ -1,10 +1,10 @@
 # Xbox 360 Content Specification (v2)
 
-This document describes what the Xbox 360 stores, where it stores it, and in what format. It replaces `xbox360-content-format.md` and `xbox360-content-partitions.md`. What those documents got wrong is listed in [xcontent-spec2-corrections.md](xcontent-spec2-corrections.md).
+This document describes what the Xbox 360 stores, where it stores it, and in what format. It replaces `xbox360-content-format.md` and `xbox360-content-partitions.md`. What those documents got wrong is listed in [xcontent-specification-corrections.md](xcontent-specification-corrections.md).
 
 It is written for the developers and AI agents working on `xcontent`, `xcontent-web` and the apps built on them.
 
-> **Status: complete.** All sections are written and reviewed. Some questions are still open. They are marked ❓ or 🔶 where they arise, and listed in the research record ([xcontent-spec2-research.md](xcontent-spec2-research.md)).
+> **Status: complete.** All sections are written and reviewed. Some questions are still open. They are marked ❓ or 🔶 where they arise, and listed in the research record ([xcontent-specification-research.md](xcontent-specification-research.md)).
 
 ### How confidence is marked
 
@@ -586,7 +586,7 @@ Offsets and sizes are in bytes, and offsets are from the start of the file. Numb
 | `0x344` | `0x93D6` (37,846) | Metadata, ending at `0x971A` (§6.4, §6.5) |
 
 - **Header size:** the size of the header that's actually used is stored at `0x340`. It is either `0x971A`, or `0xAD0E` for packages that add extra installer metadata. 🔶 It is usually `0x971A` for `CON` packages and `0xAD0E` for `LIVE` and `PIRS`, but not always: disc installs and downloads in progress (§4.4) are `CON` with `0xAD0E`. ✅ So read the size at `0x340`. Don't infer it from the magic.
-- **Padding:** the header is padded to the next 4 KiB boundary: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header. 🔶
+- **Padding:** the header is padded to the next 4 KiB boundary: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header. ✅ The padding is part of the header: the content ID covers it (§6.3).
 - **How much to read:** a tool doesn't need the whole header to identify a package.
   - The **first `0x2000` bytes** (8 KiB) hold every field up to the start of the thumbnails at `0x171A`. That covers the magic, signature, licences, metadata and the nine main language strings.
   - To get the **thumbnails**, read up to `0x971A`.
@@ -599,6 +599,8 @@ Offsets and sizes are in bytes, and offsets are from the start of the file. Numb
 | `0x3D9` (`0x24` bytes) | Unused | Media data or avatar asset data (§6.4) |
 | Languages | 9 | 12. The three extra are stored in the thumbnails' space (§6.5). |
 | Space for each thumbnail | `0x4000` | `0x3D00` |
+
+> ⚠️ **xenia reads the thumbnail space differently.** xenia-canary allows `0x4000` only when the stored version is exactly 1, and `0x3D00` for anything else, including 0. ✅ So for real version 1 packages, which store 0, it allows less space than they have. This looks like a bug in xenia. Other parts of xenia treat only 2 as version 2, as described above.
 
 ### 6.2 Magic and signature (`0x000`–`0x22C`)
 
@@ -616,13 +618,32 @@ The first 4 bytes are the magic: `CON ` (note the trailing space), `LIVE` or `PI
 | `0x006` | `0x5` (5) | Certificate owner console ID |
 | `0x00B` | `0x14` (20) | Console part number (text) |
 | `0x01F` | `0x1` (1) | Console type: `0x01` devkit, `0x02` retail |
-| `0x020` | `0x8` (8) | Certificate date (text) |
+| `0x020` | `0x8` (8) | Certificate date (text, see below) |
 | `0x028` | `0x4` (4) | Public exponent |
 | `0x02C` | `0x80` (128) | Public modulus |
 | `0x0AC` | `0x100` (256) | Certificate signature (by Microsoft) |
 | `0x1AC` | `0x80` (128) | Package signature (RSA-1024, by the console) |
 
 **`LIVE` and `PIRS` packages** carry a `0x100`-byte Microsoft signature at `0x004`, followed by padding up to `0x22C`. ✅ Tool-made `LIVE` packages leave the signature empty (§2.3).
+
+#### The certificate date field
+
+The certificate date at `0x020` is 8 bytes of ASCII text. ✅ Free60 calls it the "Certificate Date of Generation", and Velocity reads it as a plain string without parsing it. Neither gives its format.
+
+Real `CON` packages hold text that looks like a date, with two-digit fields separated by hyphens. ✅ 29 `CON` packages were checked, and held two values:
+
+| Value | Packages |
+|---|---|
+| `11-06-09` | 28 |
+| `01-12-10` | 1 |
+
+The format is not known. ❓
+- **Field order:** both values are valid as month-day-year and as day-month-year, so they don't show which it is. A value with a number above 12 in either of the first two fields would settle it.
+- **Year:** it has only two digits, and no source says which century.
+- **Time zone:** no source gives one.
+- **Enforcement:** nothing suggests the console checks this text. Treat it as a string that may hold anything.
+
+So a reader should return the text as it is, and not parse it into a date.
 
 ### 6.3 Licences, content ID and header size (`0x22C`–`0x344`)
 
@@ -633,7 +654,7 @@ A package's **licences** say who may use it: anyone, a particular Xbox Live acco
 | Offset | Size | Field |
 |---|---|---|
 | `0x22C` | `0x100` (256) | 16 licence entries of `0x10` bytes each (below) |
-| `0x32C` | `0x14` (20) | Content ID: a SHA-1 hash of the header from `0x344` up to the header size at `0x340` 🔶. It doesn't cover the licences: unlocking a package leaves it unchanged (§4.8). ✅ Velocity calls it the header hash. |
+| `0x32C` | `0x14` (20) | Content ID: a SHA-1 hash of the header from `0x344` up to the end of the padded header: `0xA000` for a `0x971A` header, `0xB000` for a `0xAD0E` header (§6.1). ✅ It covers the padding, not just the bytes up to the header size at `0x340`. It doesn't cover the licences: unlocking a package leaves it unchanged (§4.8). ✅ Velocity calls it the header hash. |
 | `0x340` | `0x4` (4) | Header size (§6.1) |
 
 Each licence entry is: ✅
@@ -687,6 +708,10 @@ Licensee types (Velocity): `0xFFFF` unrestricted (so `0xFFFFFFFFFFFFFFFF` means 
 
 Fields `0x354`–`0x36B` are the same execution info a game's `.xex` carries in its optional header `0x40006`. ✅ The Media ID identifies a particular disc or build, and the Title ID identifies the game.
 
+> ⚠️ **Sources disagree about `0x3AD`–`0x3D8`.** rom-properties and Free60's version 2 table put a series ID at `0x3B1`, inside the online creator field. emoose's template and acceleration agree with this specification: online creator at `0x3AD`, category at `0x3B5`, reserved bytes at `0x3B9`–`0x3D8`, and the version 2 media or avatar data at `0x3D9`. 🔶
+
+> ⚠️ **Iso2God writes the data file count in the wrong place.** iso2god-rs and the original Iso2God write it as a little-endian 4-byte number at `0x3A0`, not big-endian at `0x39D`. ✅ The two read the same only for counts below 256, about 41 GB of data files, so real GODs aren't affected.
+
 **Transfer flags** (`0x1711`), as Velocity reads them: ✅
 
 | Bit | Meaning |
@@ -709,7 +734,7 @@ xenia declares the same six flags as a C bitfield, which a reader could take to 
 
 **Language slots.** The display name and description fields are each **9 slots of `0x100` bytes** (128 UTF-16 characters) ✅ (xenia: `chars[kNumLanguagesV1][128]` with `kNumLanguagesV1 = 9`.)
 
-Slot *n* holds the language with ID *n* + 1: ✅
+Slot *n* holds the language with ID *n* + 1: ✅ Slots 9 to 11 exist only in metadata version 2 (see below).
 
 | Slot | Language |
 |---|---|
@@ -722,10 +747,19 @@ Slot *n* holds the language with ID *n* + 1: ✅
 | 6 | Korean |
 | 7 | Traditional Chinese |
 | 8 | Portuguese |
+| 9 | Unnamed Language (possibly Simplified Chinese) 🔶 |
+| 10 | Polish |
+| 11 | Russian |
 
-Each slot is padded with zeros. Empty slots are all zeros, so a reader should skip them.
+Each slot is padded with zeros. Empty slots are all zeros, so a reader should treat them as empty.
 
-**Metadata version 2** (§6.1) adds three more languages. 🔶 Their names and descriptions go in `0x300`-byte blocks taken from the end of each thumbnail's space: names at `0x541A` and descriptions at `0x941A`. ✅ So each thumbnail can be at most `0x3D00` bytes in version 2, instead of `0x4000`. The thumbnails don't move. ✅ xenia's language list suggests the extra three include Polish and Russian. 🔶
+**Metadata version 2** (§6.1) adds three more languages: slots 9 to 11. ✅ Their names and descriptions go in `0x300`-byte blocks taken from the end of each thumbnail's space: names at `0x541A` and descriptions at `0x941A`. ✅ So each thumbnail can be at most `0x3D00` bytes in version 2, instead of `0x4000`. The thumbnails don't move. ✅
+
+xenia reads the extra slots with the same rule as the first nine: slot = language ID − 1. ✅ The *South Park* fixture confirms two of them, once its UTF-8 problem is undone. Slot 10 holds its Polish name ("South Park™: KP") and slot 11 its Russian name ("Южный парк™: П. И."). ✅ Slot 9 is less certain. xenia, rom-properties and Free60 all give language ID 10 as Simplified Chinese. xenia-canary has since moved Simplified Chinese to ID 17 and left ID 10 unnamed. No fixture has text in slot 9. 🔶
+
+There are no slots for languages beyond ID 12. ✅ Later consoles have more language IDs (xenia-canary lists Swedish, Turkish, Norwegian and Dutch as 13 to 16), but xenia reads the English slot for any ID above 12. 
+
+> ⚠️ rom-properties declares 18 slots of `0x80` bytes, plus 6 more in version 2. The fixtures don't match that: their language names are `0x100` bytes apart. This is assumed to be a mistake in rom-properties. ❓ Further research may prove otherwise.
 
 ### 6.6 STFS: blocks, hash tables and files
 
@@ -947,8 +981,8 @@ These are cited by file name below, without repeating their links.
 | **rom-properties** | https://github.com/GerbilSoft/rom-properties | File-properties tool. Xbox 360 structures are in `src/libromdata/Console/xbox360_stfs_structs.h`. |
 | **emoose/xbox-reversing** | https://github.com/emoose/xbox-reversing | Format templates (`Xbox360Container.bt`) and `stfschk` |
 | **ConsoleMods** | https://consolemods.org/wiki/ | Modding wiki. It blocked direct reading, so its pages were mostly seen in snippets. |
-| **X1 research** | [x1-research-findings.md](session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
-| **Real drives** | [xcontent-spec2-research.md](xcontent-spec2-research.md) | Primary research on real `Content/` trees (§8.3). The research record holds the method, the evidence and the open questions. |
+| **X1 research** | [x1-research-findings.md](../session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
+| **Real drives** | [xcontent-specification-research.md](xcontent-specification-research.md) | Primary research on real `Content/` trees (§8.3). The research record holds the method, the evidence and the open questions. |
 | **This repo's fixtures** | `packages/xcontent/src/parse-header/__tests__/fixtures/` | Real package headers: two GOD headers (`god-dead-island-riptide`, `god-south-park-tsot`) and two DLC packages (`dlc-halo-reach-anniversary`, `dlc-halo-wars`) |
 
 ### 8.3 Primary research
@@ -957,7 +991,7 @@ Some claims were checked directly against real drives, on 2026-10-12. ✅ The so
 - a FAT32 USB drive holding four `Content/` trees, 591 packages in all
 - a copy of part of one of those trees
 
-Every package's header was read, and the layout of every directory was checked. The method, every question asked and the questions still open are in the research record ([xcontent-spec2-research.md](xcontent-spec2-research.md)).
+Every package's header was read, and the layout of every directory was checked. The method, every question asked and the questions still open are in the research record ([xcontent-specification-research.md](xcontent-specification-research.md)).
 
 What the drives established, by section:
 
@@ -980,6 +1014,8 @@ What the drives established, by section:
   - Metadata version 1 is stored as 0.
   - `CON` headers can be `0xAD0E`.
   - The content ID doesn't cover the licences.
+  - The content ID is the SHA-1 of `0x344` up to the end of the padded header (§6.1, §6.3), checked on 2026-10-13. It matched every package: all 591 on the USB drive and all 181 in the copy, of every magic and both header sizes. Hashing only up to the header size matched none.
+  - The certificate date's values (§6.2), from 29 `CON` packages in the copy, checked on 2026-10-13.
 - **§7:** the invalid layouts in §7.3 were all found on real drives, except where marked. Headers often disagree with their directory (§7.2). The old copier's output had every SVOD header but no `.data` directories (the X1 question).
 
 ### 8.4 §1: The big picture
@@ -1171,11 +1207,24 @@ What the drives established, by section:
   - xenia-canary `kernel/xam/xcontent/xcontent.h` (`XContentHeader`, `XContentMetadata`, `XContentLicense`, `XContentAttributes`).
   - xenia-canary `kernel/util/xex2_info.h` (`xex2_opt_execution_info`).
   - Velocity `XboxInternals/Stfs/XContentHeader.cpp` and `StfsDefinitions.h` (`Certificate`).
+  - **Certificate date:** Free60's STFS page (an 8-byte ASCII string, "Certificate Date of Generation", with no format) and Velocity `XboxInternals/Stfs/StfsDefinitions.cpp` (`ReadCertificateEx` reads it as a plain string).
 - **STFS and SVOD structures:** xenia-canary `vfs/devices/stfs_xbox.h` (`StfsVolumeDescriptor`, `StfsHashEntry`, `StfsHashTable`, `StfsDirectoryEntry`, `SvodDeviceDescriptor`) and `xcontent_devices/stfs_container_device.cc` (`BlockToOffset`).
 - **SVOD layouts:** xenia-canary `xcontent_devices/svod_container_device.cc` (`SvodLayoutType`).
-- **Languages:** xenia-canary `xbox.h` (`XLanguage`) and `xcontent.h` (`kNumLanguagesV1 = 9`, `kNumLanguagesV2 = 12`).
+- **Languages:**
+  - xenia-canary `xcontent.h` (`kNumLanguagesV1 = 9`, `kNumLanguagesV2 = 12`, and `display_name()`, which reads slot ID − 1 and falls back to English above 12). Checked at commit `2372a54`.
+  - xenia `xbox.h` (`XLanguage`: Simplified Chinese 10, Polish 11, Russian 12). Checked at commit `95a5c3e`.
+  - xenia-canary `xbox.h` (`XLanguage`: ID 10 unnamed, Polish 11, Russian 12, Swedish to Dutch 13 to 16, Simplified Chinese 17). The change is commit `9ce91e5` ("Listed extended languages").
+  - rom-properties `xbox360_xdbf_structs.h` (`XDBF_Language_e`: Simplified Chinese 10, Polish 11, Russian 12) and `xbox360_stfs_structs.h` (18 slots of `0x80` bytes).
+  - Free60 `System-Software/Profile_Account.md` (`ConsoleLanguage`: SChinese, Polish, Russian after Portuguese).
+  - The *South Park* fixture (§8.2): Polish and Russian names in slots 10 and 11.
 - **Transfer flags:** Velocity `Velocity/transferflagsdialog.cpp` (explicit bit values).
 - **String encoding:** rom-properties (UTF-16BE, and the UTF-8-as-UTF-16BE problem), and the *South Park* fixture (§8.2).
+- **How other software treats header fields** (checked on 2026-10-13, for §6.1 and §6.4):
+  - xenia-canary @ `2372a54`: `kernel/xam/xcontent/xcontent_package_container.cc` (thumbnail space by metadata version).
+  - Velocity @ `cf0b84c`: `XboxInternals/Stfs/XContentHeader.cpp` (`readMetadata`).
+  - rom-properties @ `75fb203` (`xbox360_stfs_structs.h`) and Free60's STFS page: series ID at `0x3B1`.
+  - emoose `Xbox360Container.bt` @ `5f85b9e` and acceleration @ `e7a6851`: the layout used here.
+  - iso2god-rs @ `76207d7` (`src/god/con_header.rs`) and Iso2God (decompiled, r4dius/Iso2God @ `09a6edf`, `ConHeaderWriter.cs`): the data file count at `0x3A0`.
 - **Header sizes:** emoose `Xbox360Container.bt` (LIVE and PIRS headers are `0xAD0E` "because they include XCONTENT_METADATA_INSTALLER"), and the GOD fixtures (§8.2).
 
 ### 8.10 §7: Rules for tools

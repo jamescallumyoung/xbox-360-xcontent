@@ -1,6 +1,6 @@
 # Xbox 360 Content Specification: corrections to the old docs
 
-[xcontent-spec2.md](xcontent-spec2.md) replaces two older documents:
+[xcontent-specification.md](xcontent-specification.md) replaces two older documents:
 - `xbox360-content-format.md` ("format" below)
 - `xbox360-content-partitions.md` ("partitions" below)
 
