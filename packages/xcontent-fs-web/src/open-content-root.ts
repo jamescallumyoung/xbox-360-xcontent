@@ -1,5 +1,6 @@
 import { failureFrom } from './internal/errors.js';
 import { checkPermission } from './internal/permission.js';
+import { locatePackage } from './locate-package.js';
 import { readHeaderBytes, type ReadHeaderBytesOptions } from './read-header-bytes.js';
 import type {
   ContentRoot,
@@ -53,6 +54,7 @@ export async function openContentRoot(
     mode,
     readHeaderBytes: (location: PackageLocation, readOptions?: ReadHeaderBytesOptions) =>
       readHeaderBytes(root, location, readOptions),
+    locatePackage: (entry: FileSystemHandle) => locatePackage(root, entry),
   });
   return [true, root];
 }

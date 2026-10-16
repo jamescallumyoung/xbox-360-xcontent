@@ -1,5 +1,6 @@
 // The package's public types. See the function design doc, "Shared types".
 
+import type { LocatePackageFailureReason } from './locate-package.js';
 import type { ReadHeaderBytesFailureReason, ReadHeaderBytesOptions } from './read-header-bytes.js';
 
 /**
@@ -107,4 +108,9 @@ export interface ContentRoot {
     location: PackageLocation,
     options?: ReadHeaderBytesOptions,
   ): Promise<[true, Uint8Array] | [false, ReadHeaderBytesFailureReason[]]>;
+  /**
+   * Turns a handle to a package's header file, or to its `.data` directory, into
+   * that package's location. See `locatePackage` (function design doc, L1).
+   */
+  locatePackage(handle: FileSystemHandle): Promise<[true, PackageLocation] | [false, LocatePackageFailureReason[]]>;
 }

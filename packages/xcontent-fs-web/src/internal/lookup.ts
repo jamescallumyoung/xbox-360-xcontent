@@ -1,4 +1,4 @@
-import type { AbortedReason, EntryPath, IoErrorReason, PermissionDeniedReason, WrongCaseReason } from '../types.js';
+import type { EntryPath, IoErrorReason, PermissionDeniedReason, WrongCaseReason } from '../types.js';
 import { failureFrom } from './errors.js';
 
 /** A directory's entries, by their names on disk, in a stable (sorted) order. */
@@ -16,7 +16,7 @@ export type Listing = ReadonlyMap<string, FileSystemDirectoryHandle | FileSystem
 export async function listDirectory(
   dir: FileSystemDirectoryHandle,
   path: EntryPath,
-): Promise<[true, Listing] | [false, [PermissionDeniedReason | IoErrorReason | AbortedReason]]> {
+): Promise<[true, Listing] | [false, [PermissionDeniedReason | IoErrorReason]]> {
   try {
     const entries: [string, FileSystemDirectoryHandle | FileSystemFileHandle][] = [];
     for await (const entry of dir.entries()) entries.push(entry);

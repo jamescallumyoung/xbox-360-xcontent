@@ -1,5 +1,4 @@
 import type {
-  AbortedReason,
   EntryPath,
   IoErrorReason,
   PermissionDeniedReason,
@@ -32,8 +31,7 @@ export interface PackageEntries {
   junkBesideHeader: string[];
 }
 
-type InspectFailure =
-  WrongCaseReason | UnexpectedEntryTypeReason | PermissionDeniedReason | IoErrorReason | AbortedReason;
+type InspectFailure = WrongCaseReason | UnexpectedEntryTypeReason | PermissionDeniedReason | IoErrorReason;
 
 /**
  * Finds a package's entries in its content-type directory: the header, the

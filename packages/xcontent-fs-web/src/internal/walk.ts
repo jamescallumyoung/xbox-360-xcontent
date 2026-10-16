@@ -1,5 +1,4 @@
 import type {
-  AbortedReason,
   IoErrorReason,
   NotFoundReason,
   PackageLocation,
@@ -11,7 +10,7 @@ import { failureFrom } from './errors.js';
 import { listDirectory, lookupExact } from './lookup.js';
 
 type WalkFailure =
-  NotFoundReason | WrongCaseReason | UnexpectedEntryTypeReason | PermissionDeniedReason | IoErrorReason | AbortedReason;
+  NotFoundReason | WrongCaseReason | UnexpectedEntryTypeReason | PermissionDeniedReason | IoErrorReason;
 
 /**
  * Opens a location's content-type directory, going down from the root through

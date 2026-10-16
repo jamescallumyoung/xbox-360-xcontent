@@ -73,3 +73,20 @@ export async function hasAppleDoubleMagic(file: FileSystemFileHandle): Promise<b
   const head = new Uint8Array(await (await file.getFile()).slice(0, 4).arrayBuffer());
   return head.length === 4 && APPLE_DOUBLE_MAGIC.every((byte, index) => head[index] === byte);
 }
+
+/**
+ * Whether a file's name alone makes it some package's junk: a swap file
+ * (`*.crswap`) or, if its magic is valid, an AppleDouble file (`._*`).
+ *
+ * Function design doc, L1.9. Every name ending in `.crswap` is the swap file of
+ * some package (`NAME.crswap` or `NAME.N.crswap`), and every name starting with
+ * `._` is the AppleDouble file of some entry, so by `clean`'s rules (J1.13,
+ * J1.14) such a file is never a header. An `apple-double` result still needs
+ * {@link hasAppleDoubleMagic}.
+ */
+export function junkKindOfName(name: string): 'crswap' | 'apple-double' | undefined {
+  // `._` first: `._ABC.crswap` is an AppleDouble file, checked by its magic (J1.16).
+  if (name.startsWith('._')) return 'apple-double';
+  if (name.endsWith('.crswap')) return 'crswap';
+  return undefined;
+}

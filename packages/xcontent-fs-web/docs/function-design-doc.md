@@ -431,9 +431,13 @@ type LocatePackageFailureReason =
   | InvalidLocationReason
   | PermissionDeniedReason
   | WrongCaseReason
+  | NotFoundReason
+  | UnexpectedEntryTypeReason
   | JunkReason
   | IoErrorReason;
 ```
+
+`NotFoundReason` and `UnexpectedEntryTypeReason` were added while building L1 (2026-10-16), for statement 12.
 
 ### Behaviour
 
@@ -455,6 +459,7 @@ type LocatePackageFailureReason =
 9. A junk name at depth 4 gives `junk`, by `clean`'s rules (J1.13–J1.16): for example `._ABC` or `ABC.crswap`.
 10. It doesn't check that the header exists (for a data directory), and never reads it. `readHeaderBytes` is how to confirm the header.
 11. Takes no `signal` and no `onProgress`.
+12. A handle outlives its entry. If the entry, or a directory above it, was removed after the handle was obtained, it fails with `not-found`; if one was replaced by an entry of the other kind, with `unexpected-entry-type`.
 
 ### Notes and references
 

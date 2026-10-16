@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { appleDouble, fakeAppleDouble, truncatedAppleDouble } from '../../__tests__/helpers/junk.js';
 import { createTestDrive } from '../../__tests__/helpers/test-drive.js';
-import { classifyBesideHeader, dataFileIndex, hasAppleDoubleMagic, isDataFileName } from '../junk.js';
+import { classifyBesideHeader, dataFileIndex, hasAppleDoubleMagic, isDataFileName, junkKindOfName } from '../junk.js';
 import { escapeRegExp } from '../regex.js';
 
 /** Every character FATX allows in a name (spec §5). */
@@ -140,4 +140,27 @@ describe('hasAppleDoubleMagic', () => {
     drive.fail({ operation: 'read' });
     await expect(hasAppleDoubleMagic(file)).rejects.toMatchObject({ name: 'NotReadableError' });
   });
+});
+
+describe('junkKindOfName', () => {
+  // L1.9: a file at depth 4 is junk if it is any package's junk by clean's
+  // rules. Every name ending in .crswap is some package's swap file, and every
+  // name starting with ._ is some package's AppleDouble file if its magic is valid.
+  it.each(['ABC.crswap', 'ABC.1.crswap', 'XYZ.crswap', '.crswap', 'ABC.data.crswap'])(
+    'L1.9: %j is a swap file',
+    (name) => {
+      expect(junkKindOfName(name)).toBe('crswap');
+    },
+  );
+
+  it.each(['._ABC', '._ABC.data', '._ABC.crswap', '._'])('L1.9: %j may be an AppleDouble file', (name) => {
+    expect(junkKindOfName(name)).toBe('apple-double');
+  });
+
+  it.each(['ABC', 'ABC.data', 'ABC.CRSWAP', 'crswap', '.ABC', '_.ABC', 'ABC.crswap.bak'])(
+    'L1.9: %j is not junk by name',
+    (name) => {
+      expect(junkKindOfName(name)).toBeUndefined();
+    },
+  );
 });
