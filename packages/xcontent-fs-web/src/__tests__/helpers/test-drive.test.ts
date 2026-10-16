@@ -296,6 +296,32 @@ describe('faults', () => {
   });
 });
 
+describe('stream faults', () => {
+  it("fails a file's stream part-way, after the data before the fault", async () => {
+    const drive = createTestDrive({ tree: { a: new Uint8Array(200_000).fill(1) } });
+    drive.fail({ operation: 'stream', path: ['a'], after: 1 });
+    const file = await (await drive.root.getFileHandle('a')).getFile();
+    const reader = file.stream().getReader();
+    const first = await reader.read();
+    expect(first.done).toBe(false);
+    await expect(reader.read()).rejects.toMatchObject({ name: 'NotReadableError' });
+  });
+
+  it('gives the file in 64 KiB chunks, as Chromium does', async () => {
+    const drive = createTestDrive({ tree: { a: new Uint8Array(200_000).fill(1) } });
+    const reader = (await (await drive.root.getFileHandle('a')).getFile()).stream().getReader();
+    const sizes: number[] = [];
+    for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) sizes.push(chunk.value.length);
+    expect(sizes).toEqual([65536, 65536, 65536, 3392]);
+  });
+
+  it('reads the whole file without a fault', async () => {
+    const drive = createTestDrive({ tree: { a: new Uint8Array(200_000).fill(1) } });
+    const file = await (await drive.root.getFileHandle('a')).getFile();
+    expect((await new Response(file.stream()).arrayBuffer()).byteLength).toBe(200_000);
+  });
+});
+
 describe('onOperation', () => {
   it('reports each operation with its path, until stopped', async () => {
     const drive = createTestDrive({ tree: { a: DIR } });

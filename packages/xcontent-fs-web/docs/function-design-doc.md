@@ -4,7 +4,7 @@ One design per public function of `xcontent-fs-web`. Each section relies on the 
 
 - **Format reference:** [xcontent-specification.md](../../../docs/xcontent-specification.md). "§" means a section of it.
 - **Decision history and rationale:** [xcontent-fs-web-design-decision-record.md](xcontent-fs-web-design-decision-record.md), cited as "record §".
-- **Status:** being built. O1, H1, L1, J1 and D1 are implemented; C1 is next. Last updated 2026-10-16.
+- **Status:** implemented: O1, H1, L1, J1, D1 and C1. Last updated 2026-10-16.
 
 Every statement in this document is one of:
 
@@ -199,7 +199,7 @@ type CopyToFailureReason =
 
 1. An already-aborted `signal` gives `aborted` before anything else.
 2. `location` is checked by the location checks (package-wide rule 7).
-3. `packageName` must be at most **248** characters, or the copy fails with `name-too-long`. Writing a file needs 7 more characters for Chromium's swap file, and FAT32 allows 255 (record §4.3). APFS, exFAT and NTFS allow about the same.
+3. `packageName` must be at most **248** characters, or the copy fails with `name-too-long`. Writing a file needs 7 more characters for Chromium's swap file, and FAT32 allows 255 (record §4.3). APFS, exFAT and NTFS allow about the same. A stale `name.crswap` at the target makes Chromium use `name.1.crswap`, 9 characters longer: a name of 247 or 248 characters then fails at the header, as `io-error`, after the data files are copied. That leaves a detectable interrupted copy (C1.23); running `clean` on the target first avoids it.
 4. `target` must not be this root. If `this.handle.isSameEntry(target.handle)`, the copy fails with `same-root`. The browser's method is called directly, with a comment: it can return `false` for one directory reached by two spellings, which can't happen with roots from the picker (record §7).
 5. This root needs `read` permission and `target` needs `readwrite`, checked with `checkPermission`. Otherwise `permission-denied`, with `root` saying which.
 
@@ -221,7 +221,7 @@ type CopyToFailureReason =
 **The target**
 
 13. Each directory on the path that already exists on the target must match the location's segment exactly, or the copy fails with `wrong-case`.
-14. The copy fails with `target-exists` if an entry named `name` or `name.data` exists in the target's content-type directory **in any case**, found by listing and comparing names case-insensitively. On FAT32, creating `ABC` would write into an existing `abc`.
+14. The copy fails with `target-exists` if an entry named `name` or `name.data` exists in the target's content-type directory **in any case**, found by listing and comparing names case-insensitively. On FAT32, creating `ABC` would write into an existing `abc`. The check is repeated just before `name.data/` is created and just before the header is written, so an entry that appears meanwhile (such as another copy of the same package to the same drive) is not written into. The browser has no "create only if new", so a short gap remains between the last check and each creation. (Added while building C1, 2026-10-16.)
 15. Junk already at the target (such as `._ABC` or `ABC.crswap`) doesn't stop the copy. `cleanOutput` removes it.
 16. Free space can't be checked beforehand. A full drive gives `io-error` part-way through.
 
@@ -229,7 +229,7 @@ type CopyToFailureReason =
 
 17. Missing directories on the target are created with the location's spelling (uppercase).
 18. For an SVOD package, the order is: create `name.data/`; copy the data files from the **highest number down to `Data0000`**, sorted by number; then copy the header. For an STFS package, only the header is copied.
-19. Each file is copied in one write session: `getFileHandle(name, { create: true })`, `createWritable()`, the source file's stream piped in, then `close()`. There are no slices and no resuming.
+19. Each file is copied in one write session: `getFileHandle(name, { create: true })`, `createWritable()`, the source file's stream read and written chunk by chunk, then `close()`. There are no slices and no resuming. An explicit read/write loop is used rather than `pipeTo`, so each failure is reported against the root it came from (`root: 'source'` for a read, `'target'` for a write), and the signal is checked between chunks. (Updated while building C1, 2026-10-16.)
 20. After each `close()`, the copy's size is compared with the source file's size (a metadata read). A mismatch gives `io-error` with `operation: 'verify-size'`, and `error.message` giving both sizes _(inferred)_.
 
 **Interruption**

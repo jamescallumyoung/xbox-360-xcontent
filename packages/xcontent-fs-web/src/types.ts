@@ -1,5 +1,6 @@
 // The package's public types. See the function design doc, "Shared types".
 
+import type { CopyToFailureReason, CopyToOptions } from './copy-to.js';
 import type { DeletePackageFailureReason, DeletePackageOptions } from './delete-package.js';
 import type { LocatePackageFailureReason } from './locate-package.js';
 import type { ReadHeaderBytesFailureReason, ReadHeaderBytesOptions } from './read-header-bytes.js';
@@ -123,4 +124,14 @@ export interface ContentRoot {
     location: PackageLocation,
     options?: DeletePackageOptions,
   ): Promise<[true] | [false, DeletePackageFailureReason[]]>;
+  /**
+   * Copies one package from this root to the same location in `target`: data
+   * files from the highest number down, then the header. See `copyTo` (function
+   * design doc, C1).
+   */
+  copyTo(
+    target: ContentRoot,
+    location: PackageLocation,
+    options?: CopyToOptions,
+  ): Promise<[true] | [false, CopyToFailureReason[]]>;
 }

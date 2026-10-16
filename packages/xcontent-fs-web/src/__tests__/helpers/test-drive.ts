@@ -13,6 +13,12 @@
 //   enforce them
 // - injected faults, and a pulled drive, on which everything fails
 // - macOS's AppleDouble files, created beside new entries and removed with them
+//
+// Known memfs bug (4.80): renaming a file over an existing one, as `close()` does
+// with a swap file, leaves the parent directory counting a child that's gone. So
+// after a file is written through a writable, removing its emptied parent
+// directory fails with InvalidModificationError. Tests that copy and then delete
+// on the same drive will hit this; Chromium doesn't have the problem.
 
 // Handle methods are `async` even where nothing is awaited, so that, as with the
 // real API, every failure is a rejected promise rather than a synchronous throw.
@@ -24,7 +30,7 @@ import { appleDouble } from './junk.js';
 import { joinPath, snapshotTree, writeTree, type TreeSpec } from './tree.js';
 
 /** The file system operations a test can watch or make fail. */
-export type DriveOperation = 'list' | 'open' | 'create' | 'read' | 'write' | 'close' | 'remove';
+export type DriveOperation = 'list' | 'open' | 'create' | 'read' | 'stream' | 'write' | 'close' | 'remove';
 
 /** Each call to a handle method, as a listener sees it. */
 export interface OperationEvent {
@@ -38,8 +44,9 @@ export interface OperationEvent {
  *
  * Operations are: `list` (iterating a directory), `open` (getting a handle to an
  * existing entry), `create` (getting a handle with `create: true` when the entry
- * is missing), `read` (`getFile()`), `write` (`createWritable()`, and each chunk
- * written), `close` (closing a writable) and `remove` (`removeEntry()`).
+ * is missing), `read` (`getFile()`), `stream` (each chunk read from a file's
+ * stream, so a read can fail part-way), `write` (`createWritable()`, and each
+ * chunk written), `close` (closing a writable) and `remove` (`removeEntry()`).
  */
 export interface Fault {
   operation: DriveOperation;
@@ -129,6 +136,9 @@ export function createTestDrive(options: TestDriveOptions = {}): TestDrive {
     },
   };
 }
+
+/** The size of each chunk a file's stream gives, as Chromium's does. */
+const STREAM_CHUNK_SIZE = 64 * 1024;
 
 const WRITE_OPERATIONS: ReadonlySet<DriveOperation> = new Set(['create', 'write', 'close', 'remove']);
 
@@ -368,7 +378,32 @@ class TestFileHandle extends TestHandle implements FileSystemFileHandle {
     if (!this.state.fs.existsSync(this.innerPath)) throw domError('NotFoundError');
     // A copy, so the File owns a plain ArrayBuffer.
     const bytes = new Uint8Array(this.state.fs.readFileSync(this.innerPath) as Uint8Array);
-    return new File([bytes], this.name);
+    const file = new File([bytes], this.name);
+    // Like Chromium, the stream gives the file in chunks (Node's gives it whole), and
+    // each chunk read is a `stream` operation, so a read can fail part-way.
+    const { state, path } = this;
+    Object.defineProperty(file, 'stream', {
+      value: (): ReadableStream<Uint8Array<ArrayBuffer>> => {
+        let offset = 0;
+        return new ReadableStream({
+          pull(controller) {
+            try {
+              state.check('stream', path);
+            } catch (error) {
+              controller.error(error);
+              return;
+            }
+            if (offset >= bytes.length) {
+              controller.close();
+              return;
+            }
+            controller.enqueue(bytes.slice(offset, offset + STREAM_CHUNK_SIZE));
+            offset += STREAM_CHUNK_SIZE;
+          },
+        });
+      },
+    });
+    return file;
   }
 
   async createWritable(options?: FileSystemCreateWritableOptions): Promise<FileSystemWritableFileStream> {

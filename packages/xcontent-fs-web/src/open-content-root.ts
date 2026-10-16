@@ -1,3 +1,4 @@
+import { copyTo, type CopyToOptions } from './copy-to.js';
 import { deletePackage, type DeletePackageOptions } from './delete-package.js';
 import { failureFrom } from './internal/errors.js';
 import { checkPermission } from './internal/permission.js';
@@ -58,6 +59,8 @@ export async function openContentRoot(
     locatePackage: (entry: FileSystemHandle) => locatePackage(root, entry),
     deletePackage: (location: PackageLocation, deleteOptions?: DeletePackageOptions) =>
       deletePackage(root, location, deleteOptions),
+    copyTo: (target: ContentRoot, location: PackageLocation, copyOptions?: CopyToOptions) =>
+      copyTo(root, target, location, copyOptions),
   });
   return [true, root];
 }
