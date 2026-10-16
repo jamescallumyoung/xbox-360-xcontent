@@ -935,10 +935,18 @@ A package is the unit that is copied, moved, compared or removed.
 
 - **Copy the whole unit,** and keep every name exactly as it is in the source.
 - **Keep the path:** copy a package to the same partition, Title ID and content-type directories as in the source.
-- **Order:** write an SVOD package's data files first and its header file last. A tool that finds packages by their header then won't mistake a half-copied package for a complete one.
+- **Order:** write an SVOD package's data files first, from the highest-numbered down to `Data0000`, and its header file last.
+  - A tool that finds packages by their header then won't mistake a half-copied package for a complete one.
+  - Because `Data0000` is written last, a non-empty `Data0000` means every other data file was written before it.
+  - So an interrupted copy always leaves a `.data` directory without its header, or without `Data0000`, which a tool can detect from names alone, without reading a header.
+- **Write each file in one go,** if the platform allows it, so that a file is either complete or was never committed. Browsers using the File System Access API work this way (see "Leftovers" below).
 - **Limits when writing to FATX** (§5):
   - every name must be at most 42 characters, including `.data`
   - every file must be at most 4 GB
+  - a browser writing through the File System Access API needs room for a swap file named `<name>.crswap`, 7 characters longer than the name. So a browser can't write a 36-character or longer name to FATX, which rules out Xbox Live packages' 42-character names. ✅ (Checked in Chrome on FAT32, which allows 255: names of up to 248 characters could be written, and longer ones failed.)
+- **Leftovers that aren't part of any package.** Two kinds of file appear in real `Content/` trees, and a tool should neither copy them nor treat them as packages: ✅ (Checked on a FAT32 USB drive with Chrome 155 on macOS 26.3, 2026-10-15.)
+  - **Swap files** (`<name>.crswap`, or `<name>.1.crswap` and so on if that name is taken). Chromium writes each file into one, and replaces the target with it when the write finishes. A crash, power cut or pulled drive leaves the swap file behind, beside an empty file with the target's name.
+  - **AppleDouble files** (`._<name>`, 4 KiB). macOS writes one beside every file and directory it creates on a drive that can't store its extended attributes, such as FAT32, including inside `.data` directories (`._Data0000`). They start with the bytes `00 05 16 07`. Deleting a file on macOS also deletes its AppleDouble file.
 - **Things a copy doesn't bring along.** A tool should say so when it matters:
   - Older title updates, in `Hdd1:\Cache`, are outside `Content/` (§4.5). 🔶
   - Saves and other profile content are tied to their profile, which a game may require on the target device (§2.2).
@@ -952,7 +960,11 @@ A package is the unit that is copied, moved, compared or removed.
 ### 7.6 Removing
 
 - **Remove the whole unit.**
-- **Order:** remove an SVOD package's data directory first and its header file last. If removal is interrupted, what's left is a header without its data, which a tool can detect as incomplete (§7.3). The reverse would leave a `.data` directory that tools which find packages by their header never see.
+- **Order:** remove an SVOD package's header file first, then its data files from `Data0000` upwards, then the empty `.data` directory.
+  - The console and dashboard then never list a package whose data is half gone.
+  - If removal is interrupted, what's left is a `.data` directory without its header and without its lowest-numbered data files. A tool can detect that from names alone, the same way as an interrupted copy (§7.4).
+  - The opposite order (data first, header last) leaves a header without its data, which the console may still list. 🔶
+  - With the header-first order, a tool that finds packages only by their header would miss a leftover `.data` directory. So tools should also look for `.data` directories without a header (§7.3).
 - **Empty directories:** after removing the last package in a content-type, Title ID or partition directory, a tool may remove the empty directory.
 
 ## 8. Sources
@@ -1017,6 +1029,7 @@ What the drives established, by section:
   - The content ID is the SHA-1 of `0x344` up to the end of the padded header (§6.1, §6.3), checked on 2026-10-13. It matched every package: all 591 on the USB drive and all 181 in the copy, of every magic and both header sizes. Hashing only up to the header size matched none.
   - The certificate date's values (§6.2), from 29 `CON` packages in the copy, checked on 2026-10-13.
 - **§7:** the invalid layouts in §7.3 were all found on real drives, except where marked. Headers often disagree with their directory (§7.2). The old copier's output had every SVOD header but no `.data` directories (the X1 question).
+- **§7.4, a browser writing to a drive** (2026-10-15): a test page wrote files with the File System Access API in Chrome 155 on macOS 26.3, to a FAT32 USB drive. It established the swap files and their names, the empty file created before writing, the 248-character limit for names on FAT32, and the AppleDouble files macOS adds. The full results are in the `xcontent-fs-web` design decision record (`packages/xcontent-fs-web/docs/xcontent-fs-web-design-decision-record.md`, §2.4).
 
 ### 8.4 §1: The big picture
 
@@ -1230,3 +1243,5 @@ What the drives established, by section:
 ### 8.10 §7: Rules for tools
 
 §7's rules are built on the sections they cite. Their sources are listed under those sections above.
+
+- **Writing from a browser** (§7.4): the real-drive test in §8.3; MDN browser-compat-data for `showDirectoryPicker`, `createWritable` and `move` (checked 2026-10-15); the WHATWG File System standard (writes don't show until the stream is closed).
