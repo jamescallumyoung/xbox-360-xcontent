@@ -139,7 +139,9 @@ describe('openContentRoot', () => {
       const [, first] = await openContentRoot(drive.root);
       const [, second] = await openContentRoot(drive.root);
       expect(first).not.toBe(second);
-      expect(first).toEqual(second);
+      // Equivalent: the same handle and mode. (Each root has its own bound methods.)
+      expect(first).toMatchObject({ handle: drive.root, mode: 'read' });
+      expect(second).toMatchObject({ handle: drive.root, mode: 'read' });
     });
 
     // O1.10 (no signal and no onProgress) is a property of the signature, which

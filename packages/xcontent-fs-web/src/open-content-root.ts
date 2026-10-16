@@ -1,6 +1,13 @@
 import { failureFrom } from './internal/errors.js';
 import { checkPermission } from './internal/permission.js';
-import type { ContentRoot, IoErrorReason, PermissionDeniedReason, UnexpectedEntryTypeReason } from './types.js';
+import { readHeaderBytes, type ReadHeaderBytesOptions } from './read-header-bytes.js';
+import type {
+  ContentRoot,
+  IoErrorReason,
+  PackageLocation,
+  PermissionDeniedReason,
+  UnexpectedEntryTypeReason,
+} from './types.js';
 
 /** Why `openContentRoot` failed. */
 export type OpenContentRootFailureReason = UnexpectedEntryTypeReason | PermissionDeniedReason | IoErrorReason;
@@ -16,7 +23,8 @@ export type OpenContentRootFailureReason = UnexpectedEntryTypeReason | Permissio
  * yourself first if `queryPermission` says `prompt` (O1.5). It doesn't check what
  * the directory holds, and the directory can have any name (O1.2, O1.7).
  *
- * The root is a frozen object holding the handle and mode (O1.8). It caches
+ * The root is a frozen object holding the handle, the mode and the methods, which
+ * are bound to it (O1.8). It caches
  * nothing: every call reads the drive afresh (O1.9).
  */
 export async function openContentRoot(
@@ -40,5 +48,11 @@ export async function openContentRoot(
     return [false, [failureFrom(error, 'list', [])]];
   }
 
-  return [true, Object.freeze({ handle, mode })];
+  const root: ContentRoot = Object.freeze({
+    handle,
+    mode,
+    readHeaderBytes: (location: PackageLocation, readOptions?: ReadHeaderBytesOptions) =>
+      readHeaderBytes(root, location, readOptions),
+  });
+  return [true, root];
 }

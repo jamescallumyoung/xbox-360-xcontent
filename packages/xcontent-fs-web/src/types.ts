@@ -1,5 +1,7 @@
 // The package's public types. See the function design doc, "Shared types".
 
+import type { ReadHeaderBytesFailureReason, ReadHeaderBytesOptions } from './read-header-bytes.js';
+
 /**
  * Where a package is, in a `Content/` tree: its partition, Title ID and content
  * type directories, and its header's name.
@@ -97,4 +99,12 @@ export interface ContentRoot {
   readonly handle: FileSystemDirectoryHandle;
   /** The permission mode the root was opened with. */
   readonly mode: 'read' | 'readwrite';
+  /**
+   * Reads the first `0xB000` bytes of a package's header file, for
+   * `xcontent-header`'s functions. See `readHeaderBytes` (function design doc, H1).
+   */
+  readHeaderBytes(
+    location: PackageLocation,
+    options?: ReadHeaderBytesOptions,
+  ): Promise<[true, Uint8Array] | [false, ReadHeaderBytesFailureReason[]]>;
 }
