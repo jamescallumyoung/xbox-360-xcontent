@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { stubReportError } from '../../__tests__/helpers/callbacks.js';
 import { createTestDrive } from '../../__tests__/helpers/test-drive.js';
-import { abortedReason, checkAborted } from '../abort.js';
+import { abortedOr, abortedReason, checkAborted } from '../abort.js';
 import { failureFrom } from '../errors.js';
 import { checkPermission } from '../permission.js';
 import { reportProgress } from '../progress.js';
@@ -26,6 +26,17 @@ describe('abort handling', () => {
   it('rule 10: no signal, or one not aborted, gives nothing', () => {
     expect(checkAborted(undefined)).toBeUndefined();
     expect(checkAborted(new AbortController().signal)).toBeUndefined();
+  });
+});
+
+describe('abortedOr', () => {
+  it('rule 10: gives the reasons when not aborted, and `aborted` instead when aborted', () => {
+    const reasons = [{ kind: 'not-found', path: [] }];
+    expect(abortedOr(undefined, reasons)).toBe(reasons);
+    expect(abortedOr(new AbortController().signal, reasons)).toBe(reasons);
+    const controller = new AbortController();
+    controller.abort('stop');
+    expect(abortedOr(controller.signal, reasons)).toEqual([{ kind: 'aborted', reason: 'stop' }]);
   });
 });
 

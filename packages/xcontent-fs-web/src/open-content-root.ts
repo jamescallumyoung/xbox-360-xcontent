@@ -1,3 +1,4 @@
+import { deletePackage, type DeletePackageOptions } from './delete-package.js';
 import { failureFrom } from './internal/errors.js';
 import { checkPermission } from './internal/permission.js';
 import { locatePackage } from './locate-package.js';
@@ -55,6 +56,8 @@ export async function openContentRoot(
     readHeaderBytes: (location: PackageLocation, readOptions?: ReadHeaderBytesOptions) =>
       readHeaderBytes(root, location, readOptions),
     locatePackage: (entry: FileSystemHandle) => locatePackage(root, entry),
+    deletePackage: (location: PackageLocation, deleteOptions?: DeletePackageOptions) =>
+      deletePackage(root, location, deleteOptions),
   });
   return [true, root];
 }

@@ -1,4 +1,4 @@
-import { checkAborted } from './internal/abort.js';
+import { abortedOr, checkAborted } from './internal/abort.js';
 import { deleteAppleDoubleFiles } from './internal/delete-apple-double-files.js';
 import { deleteCrswapFiles } from './internal/delete-crswap-files.js';
 import type { StepFailure, StepOptions, StepProgress } from './internal/delete-entries.js';
@@ -99,7 +99,7 @@ export async function clean(
   if (!permitted) return [false, denied];
 
   const [opened, dirs] = await openLocationDirectories(root.handle, checked);
-  if (!opened) return [false, dirs];
+  if (!opened) return [false, abortedOr(signal, dirs)];
   const contentTypeDir = dirs[2];
   const dirPath = [partition, titleId, contentType];
 
@@ -110,7 +110,7 @@ export async function clean(
   if (!listed) return [false, listing];
   for (const name of [packageName, `${packageName}.data`]) {
     const [exact, entry] = lookupExact(listing, name, dirPath);
-    if (!exact) return [false, entry];
+    if (!exact) return [false, abortedOr(signal, entry)];
   }
 
   const steps: [CleanStep, (stepOptions: StepOptions) => Promise<[true] | [false, [StepFailure]]>][] = [

@@ -1,5 +1,6 @@
 // The package's public types. See the function design doc, "Shared types".
 
+import type { DeletePackageFailureReason, DeletePackageOptions } from './delete-package.js';
 import type { LocatePackageFailureReason } from './locate-package.js';
 import type { ReadHeaderBytesFailureReason, ReadHeaderBytesOptions } from './read-header-bytes.js';
 
@@ -113,4 +114,13 @@ export interface ContentRoot {
    * that package's location. See `locatePackage` (function design doc, L1).
    */
   locatePackage(handle: FileSystemHandle): Promise<[true, PackageLocation] | [false, LocatePackageFailureReason[]]>;
+  /**
+   * Deletes one package: the header first, then the data files from `Data0000`
+   * upwards, then the empty `.data/` directory. See `deletePackage` (function
+   * design doc, D1).
+   */
+  deletePackage(
+    location: PackageLocation,
+    options?: DeletePackageOptions,
+  ): Promise<[true] | [false, DeletePackageFailureReason[]]>;
 }

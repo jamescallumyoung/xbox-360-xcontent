@@ -1,4 +1,4 @@
-import { checkAborted } from './internal/abort.js';
+import { abortedOr, checkAborted } from './internal/abort.js';
 import { failureFrom } from './internal/errors.js';
 import { inspectPackage } from './internal/inspect.js';
 import { checkLocation } from './internal/location.js';
@@ -76,12 +76,12 @@ export async function readHeaderBytes(
   if (!permitted) return [false, denied];
 
   const [opened, dir] = await openContentTypeDirectory(root.handle, checked);
-  if (!opened) return [false, dir];
+  if (!opened) return [false, abortedOr(signal, dir)];
   const dirPath = [partition, titleId, contentType];
   const headerPath = [...dirPath, packageName];
 
   const [inspected, entries] = await inspectPackage(dir, dirPath, packageName);
-  if (!inspected) return [false, entries];
+  if (!inspected) return [false, abortedOr(signal, entries)];
   if (entries.header === undefined) {
     if (entries.dataDirectory !== undefined) {
       return [false, [{ kind: 'orphaned-data', path: [...dirPath, `${packageName}.data`] }]];

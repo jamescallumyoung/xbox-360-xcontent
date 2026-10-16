@@ -41,8 +41,9 @@ export interface EntryToDelete {
  * since it was listed counts as deleted; any other error stops it.
  *
  * A directory is only deleted recursively when it was listed as a directory. A
- * file replaced by a directory since then fails to delete (`recursive` isn't
- * set), so nothing is wiped by mistake.
+ * file replaced by a non-empty directory since then fails to delete
+ * (`recursive` isn't set), so nothing is wiped by mistake. (An empty one is
+ * removed, which loses nothing.)
  */
 export async function deleteEntries(
   entries: readonly EntryToDelete[],

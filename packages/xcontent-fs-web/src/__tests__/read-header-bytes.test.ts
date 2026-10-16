@@ -3,7 +3,7 @@
 // package-wide rules 7, 11, 12 and 13 where they apply.
 
 import { describe, expect, it } from 'vitest';
-import { abortAfterCalls } from './helpers/abort.js';
+import { abortAfterCalls, abortOnOperation } from './helpers/abort.js';
 import { recordCalls, stubReportError } from './helpers/callbacks.js';
 import { appleDouble, swapFile } from './helpers/junk.js';
 import {
@@ -200,6 +200,16 @@ describe('root.readHeaderBytes', () => {
       });
       expect(ok).toBe(true);
       expect(reported).toContain(error);
+    });
+
+    it('rule 10: a listing that fails after an abort is reported as aborted, not io-error', async () => {
+      const { drive, root } = await setup({ tree: svodPackage('ABC') });
+      const signal = abortOnOperation(drive, { operation: 'list', path: HEADER_PATH.slice(0, 3) }, 'stop');
+      drive.fail({ operation: 'list', path: HEADER_PATH.slice(0, 3) });
+      expect(await root.readHeaderBytes(locationOf('ABC'), { signal })).toEqual([
+        false,
+        [{ kind: 'aborted', reason: 'stop' }],
+      ]);
     });
 
     it("rule 12: a read error gives io-error with the header's path", async () => {

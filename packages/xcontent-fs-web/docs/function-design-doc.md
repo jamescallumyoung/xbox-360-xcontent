@@ -4,7 +4,7 @@ One design per public function of `xcontent-fs-web`. Each section relies on the 
 
 - **Format reference:** [xcontent-specification.md](../../../docs/xcontent-specification.md). "§" means a section of it.
 - **Decision history and rationale:** [xcontent-fs-web-design-decision-record.md](xcontent-fs-web-design-decision-record.md), cited as "record §".
-- **Status:** being built. O1, H1, L1 and J1 are implemented. Last updated 2026-10-16.
+- **Status:** being built. O1, H1, L1, J1 and D1 are implemented; C1 is next. Last updated 2026-10-16.
 
 Every statement in this document is one of:
 
