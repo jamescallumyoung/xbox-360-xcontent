@@ -23,6 +23,17 @@ export function failureFrom(
   error: unknown,
   operation: IoOperation,
   path: EntryPath,
+): PermissionDeniedReason | IoErrorReason;
+export function failureFrom(
+  error: unknown,
+  operation: IoOperation,
+  path: EntryPath,
+  signal: AbortSignal | undefined,
+): PermissionDeniedReason | IoErrorReason | AbortedReason;
+export function failureFrom(
+  error: unknown,
+  operation: IoOperation,
+  path: EntryPath,
   signal?: AbortSignal,
 ): PermissionDeniedReason | IoErrorReason | AbortedReason {
   if (signal?.aborted === true) return abortedReason(signal);

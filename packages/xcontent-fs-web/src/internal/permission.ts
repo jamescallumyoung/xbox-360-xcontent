@@ -1,4 +1,4 @@
-import type { AbortedReason, IoErrorReason, PermissionDeniedReason } from '../types.js';
+import type { IoErrorReason, PermissionDeniedReason } from '../types.js';
 import { failureFrom } from './errors.js';
 
 /**
@@ -12,7 +12,7 @@ import { failureFrom } from './errors.js';
 export async function checkPermission(
   handle: FileSystemHandle,
   mode: 'read' | 'readwrite',
-): Promise<[true] | [false, [PermissionDeniedReason | IoErrorReason | AbortedReason]]> {
+): Promise<[true] | [false, [PermissionDeniedReason | IoErrorReason]]> {
   try {
     const state = await handle.queryPermission({ mode });
     if (state === 'granted') return [true];
