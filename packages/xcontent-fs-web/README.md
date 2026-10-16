@@ -2,7 +2,7 @@
 
 Copy, delete and locate Xbox 360 packages in a `Content/` tree, from a web page.
 
-Almost everything an Xbox 360 stores (games, DLC, title updates, saves, profiles) is an XContent **package**: a single file, or for large content a header file plus a `<name>.data/` directory of data files. This package works on one package at a time, through the File System Access API: it can copy a package between two `Content/` trees, delete packages, read a package's header bytes for use by [`xcontent-header`](https://github.com/jamescallumyoung/xbox360-content-utils/tree/main/packages/xcontent-header), and it can clean up junk files left by browsers and macOS.
+Almost everything an Xbox 360 stores (games, DLC, title updates, saves, profiles) is an XContent **package**: a single file, or for large content a header file plus a `<name>.data/` directory of data files. This package works on one package at a time, through the File System Access API: it can copy a package between two `Content/` trees, delete packages, read a package's header bytes, and it can clean up junk files left by browsers and macOS.
 
 The XContent format is documented in the [XContent Specification](https://github.com/jamescallumyoung/xbox360-content-utils/blob/main/docs/xcontent-specification.md). Section references below (§) point to it.
 
@@ -75,11 +75,10 @@ npm install xcontent-fs-web
 
 ## Quick start
 
-Pick two folders (a "vault" to copy from, and a "drive" to copy to), open them as roots, read a package's header, and copy the package:
+Pick two folders (a "vault" to copy from, and a "drive" to copy to), open them as roots, and copy a package:
 
 ```ts
 import { openContentRoot, type PackageLocation } from 'xcontent-fs-web';
-import { parseHeader } from 'xcontent-header';
 
 // showDirectoryPicker needs a user gesture, such as a click.
 async function onCopyClicked() {
@@ -95,12 +94,6 @@ async function onCopyClicked() {
     contentType: '00007000',
     packageName: 'E2A4C0F1B3D5E7A9C1E3F5A7B9D1E3F5',
   };
-
-  const [read, bytes] = await vault.readHeaderBytes(location);
-  if (read) {
-    const [parsed, header] = parseHeader(bytes);
-    if (parsed) console.log(header.displayNames[0]);
-  }
 
   const stop = new AbortController(); // call stop.abort() to cancel
   const [copied, reasons] = await vault.copyTo(drive, location, {
@@ -176,17 +169,17 @@ The long-running functions take a `signal` and an `onProgress` callback:
 
 These reasons are shared by several functions:
 
-| `kind`                  | Meaning                                                          | Extra fields                             |
-| ----------------------- | ---------------------------------------------------------------- | ---------------------------------------- |
-| `invalid-location`      | A `PackageLocation` field isn't valid                            | `field`, `value`                         |
-| `permission-denied`     | The page doesn't have permission in the mode needed              | `mode`, `state` (`'prompt'`, `'denied'`) |
-| `wrong-case`            | An entry exists, but in another case                             | `path` (as asked for), `found` (on disk) |
-| `not-found`             | An entry doesn't exist                                           | `path`                                   |
-| `orphaned-data`         | A `.data/` directory exists without its header                   | `path`                                   |
-| `unexpected-entry-type` | A file where a directory belongs, or the reverse                 | `path`, `expected`                       |
-| `junk`                  | A junk file in a package (see [`clean`](#clean))                 | `path`                                   |
-| `aborted`               | The `signal` was aborted                                         | `reason`                                 |
-| `io-error`              | The browser reported another error, such as a drive pulled out  | `operation`, `path`, `error` (`name`, `message`) |
+| `kind`                  | Meaning                                                        | Extra fields                                     |
+| ----------------------- | -------------------------------------------------------------- | ------------------------------------------------ |
+| `invalid-location`      | A `PackageLocation` field isn't valid                          | `field`, `value`                                 |
+| `permission-denied`     | The page doesn't have permission in the mode needed            | `mode`, `state` (`'prompt'`, `'denied'`)         |
+| `wrong-case`            | An entry exists, but in another case                           | `path` (as asked for), `found` (on disk)         |
+| `not-found`             | An entry doesn't exist                                         | `path`                                           |
+| `orphaned-data`         | A `.data/` directory exists without its header                 | `path`                                           |
+| `unexpected-entry-type` | A file where a directory belongs, or the reverse               | `path`, `expected`                               |
+| `junk`                  | A junk file in a package (see [`clean`](#clean))               | `path`                                           |
+| `aborted`               | The `signal` was aborted                                       | `reason`                                         |
+| `io-error`              | The browser reported another error, such as a drive pulled out | `operation`, `path`, `error` (`name`, `message`) |
 
 A `path` is a list of names from the root down, as `FileSystemDirectoryHandle.resolve()` gives them.
 
@@ -200,9 +193,11 @@ It checks that the handle is a directory, that permission is granted in `mode`, 
 
 #### `root.readHeaderBytes(location, { signal, onProgress })`
 
-Reads the first `0xB000` bytes of a package's header file, for `xcontent-header`'s functions: that's always enough for every one of them. It doesn't parse or check the bytes. A shorter file gives what it has. The result is a new array, which you own.
+Reads the first `0xB000` bytes of a package's header file. A header is at most `0xAD0E` bytes, padded to `0xB000`, so that's always the whole header. It doesn't parse or check the bytes. A shorter file gives what it has. The result is a new array, which you own.
 
 A `.data/` directory without its header gives `orphaned-data`.
+
+This function is intended to supply the bytes required for the API provided by `xcontent-header`.
 
 #### `root.locatePackage(handle)`
 
@@ -221,11 +216,11 @@ Copies one package from this root to the same location in `target`, another root
 
 Its own failure reasons, besides the shared ones:
 
-| `kind`           | Meaning                                                    | Extra fields      |
-| ---------------- | ---------------------------------------------------------- | ----------------- |
-| `name-too-long`  | `packageName` is over 248 characters                       | `length`, `max`   |
-| `same-root`      | `target` is this root                                      |                   |
-| `target-exists`  | The package, or its name in another case, is at the target | `path`            |
+| `kind`          | Meaning                                                    | Extra fields    |
+| --------------- | ---------------------------------------------------------- | --------------- |
+| `name-too-long` | `packageName` is over 248 characters                       | `length`, `max` |
+| `same-root`     | `target` is this root                                      |                 |
+| `target-exists` | The package, or its name in another case, is at the target | `path`          |
 
 Reasons about a root also say which, with `root: 'source'` or `root: 'target'`. Progress gives `copiedBytes`, `totalBytes`, `copiedFiles`, `totalFiles` and `fileName`.
 

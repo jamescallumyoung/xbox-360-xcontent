@@ -1,6 +1,6 @@
 # `xcontent-fs-web`: design decision record
 
-**Status:** in design. No code yet. Last updated 2026-10-16.
+**Status:** implemented, as version 0.1.0. Final verification (record §8) is pending. Last updated 2026-10-17.
 
 This records the decisions made while designing the public API of `xcontent-fs-web`, the package that copies and deletes Xbox 360 packages in a `Content/` tree from a web page. It's for James and for any agent continuing the work. The format reference is [xcontent-specification.md](../../../docs/xcontent-specification.md). Section numbers (§) below refer to it. Each function's behaviour is specified in [function-design-doc.md](function-design-doc.md).
 

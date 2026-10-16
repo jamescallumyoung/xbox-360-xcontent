@@ -4,12 +4,12 @@ One design per public function of `xcontent-fs-web`. Each section relies on the 
 
 - **Format reference:** [xcontent-specification.md](../../../docs/xcontent-specification.md). "§" means a section of it.
 - **Decision history and rationale:** [xcontent-fs-web-design-decision-record.md](xcontent-fs-web-design-decision-record.md), cited as "record §".
-- **Status:** implemented: O1, H1, L1, J1, D1 and C1. Last updated 2026-10-16.
+- **Status:** implemented: O1, H1, L1, J1, D1 and C1. Every statement once marked _(inferred)_, and every change made during review, was approved by James on 2026-10-17. Final verification is pending. Last updated 2026-10-17.
 
 Every statement in this document is one of:
 
 - **Decided:** agreed during design. No marker.
-- **Inferred:** follows from decisions already made, but was never discussed on its own. Marked _(inferred)_. Confirm before implementing.
+- **Inferred:** follows from decisions already made, but was never discussed on its own. Marked. Confirm before implementing.
 - **Open:** not decided. Marked **Open**.
 
 | ID  | Function               | Exported from | Section                       |
@@ -193,7 +193,7 @@ type CopyToFailureReason =
 
 ### Behaviour
 
-**Order of checks** _(inferred)_: the signal, the location, the name length, the roots, permission, the source, junk, the target. All of them run before anything is written.
+**Order of checks**: the signal, the location, the name length, the roots, permission, the source, junk, the target. All of them run before anything is written.
 
 **Input**
 
@@ -208,7 +208,7 @@ type CopyToFailureReason =
 6. Every directory on the path, and `packageName`, must exist in exactly the location's case. A missing directory gives `not-found`; a different spelling gives `wrong-case`.
 7. The header must exist. If only `name.data/` exists, the copy fails with `orphaned-data`. If neither exists, `not-found`.
 8. If `name` is a directory, or `name.data` is a file, the copy fails with `unexpected-entry-type`.
-9. **The copy never reads the header and never verifies the package.** A broken package is copied as it is: an SVOD header without `.data/` is copied as just the header, and data files with gaps (`Data0000`, `Data0001`, `Data0003`) are copied as they are. An empty `name.data/` is copied as an empty directory _(inferred)_.
+9. **The copy never reads the header and never verifies the package.** A broken package is copied as it is: an SVOD header without `.data/` is copied as just the header, and data files with gaps (`Data0000`, `Data0001`, `Data0003`) are copied as they are. An empty `name.data/` is copied as an empty directory.
 10. **What's copied:** the header, `name.data/` if it exists, and the files in it named exactly `DataNNNN` (`^Data\d{4}$`). Nothing else is ever copied.
 
 **Junk in the source**
@@ -216,7 +216,7 @@ type CopyToFailureReason =
 11. With `failOnJunk: false` (the default), junk in the source is ignored: not copied, and not a reason to fail.
 12. With `failOnJunk: true`, the copy fails with one `junk` reason per entry if the source has any junk:
     1. anything in `name.data/` that isn't a file named `DataNNNN`, including subdirectories
-    2. the package's swap or AppleDouble files beside the header, by `clean`'s rules (J1.13–J1.16), including the AppleDouble magic check and the `NAME.N` rule _(inferred)_
+    2. the package's swap or AppleDouble files beside the header, by `clean`'s rules (J1.13–J1.16), including the AppleDouble magic check and the `NAME.N` rule
 
 **The target**
 
@@ -230,7 +230,7 @@ type CopyToFailureReason =
 17. Missing directories on the target are created with the location's spelling (uppercase).
 18. For an SVOD package, the order is: create `name.data/`; copy the data files from the **highest number down to `Data0000`**, sorted by number; then copy the header. For an STFS package, only the header is copied.
 19. Each file is copied in one write session: `getFileHandle(name, { create: true })`, `createWritable()`, the source file's stream read and written chunk by chunk, then `close()`. There are no slices and no resuming. An explicit read/write loop is used rather than `pipeTo`, so each failure is reported against the root it came from (`root: 'source'` for a read, `'target'` for a write), and the signal is checked between chunks. (Updated while building C1, 2026-10-16.)
-20. After each `close()`, the copy's size is compared with the source file's size (a metadata read). A mismatch gives `io-error` with `operation: 'verify-size'`, and `error.message` giving both sizes _(inferred)_.
+20. After each `close()`, the copy's size is compared with the source file's size (a metadata read). A mismatch gives `io-error` with `operation: 'verify-size'`, and `error.message` giving both sizes.
 
 **Interruption**
 
@@ -313,7 +313,7 @@ On success the result is `[true]`. It doesn't say what was deleted.
 
 5. It deletes whatever exists of the package: the file `name`, the directory `name.data/`, or both. Either one alone is an orphan, and is deleted.
 6. If neither exists, it fails with `not-found`.
-7. `name` and `name.data` must match `packageName` exactly in case. An entry with the same name in a different case gives `wrong-case` _(inferred, from rule 8)_.
+7. `name` and `name.data` must match `packageName` exactly in case. An entry with the same name in a different case gives `wrong-case`.
 8. If `name` is a directory, or `name.data` is a file, it fails with `unexpected-entry-type`.
 9. It never reads the header. An empty header, or a file that isn't a package, is deleted the same way.
 
@@ -518,9 +518,9 @@ type CleanFailureReason =
 1. An already-aborted `signal` gives `aborted` before anything else.
 2. `location` is checked by the location checks (package-wide rule 7). The root needs `readwrite` permission.
 3. Every directory on the path must exist in exactly the location's case. A file where one belongs gives `unexpected-entry-type`. The header and `name.data/`, if they exist, must match `packageName` exactly too (rule 8): one existing only in another case gives `wrong-case`, and nothing is deleted. (Added while building J1, 2026-10-16: otherwise `clean` would silently do nothing for `ABC` when `abc` exists.)
-4. The header and `name.data/` don't have to exist _(inferred)_: `clean` removes whatever junk it finds, and a step with nothing to do deletes nothing.
+4. The header and `name.data/` don't have to exist: `clean` removes whatever junk it finds, and a step with nothing to do deletes nothing.
 
-**Steps.** `clean` runs four internal functions, in this order _(inferred)_. Each takes the `signal`, lists what it will delete, then deletes it:
+**Steps.** `clean` runs four internal functions, in this order. Each takes the `signal`, lists what it will delete, then deletes it:
 
 5. `deleteSvodJunkFiles` (step `svod-junk`)
 6. `deleteCrswapFiles` (step `crswap`)
