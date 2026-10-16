@@ -1,0 +1,5 @@
+# Build output
+dist
+
+# Generated code (also marked with an @generated header)
+*.generated.ts

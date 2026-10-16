@@ -16,6 +16,18 @@ Work follows TDD: tests first, then code. Tests cite the behaviour statements in
 
 Code is formatted with Prettier, configured in the package only (`printWidth` 120, single quotes, semicolons). Run `pnpm format` in `packages/xcontent-header` before finishing; `pnpm format:check` is part of the checks. Generated files are named `*.generated.ts`, start with an `@generated` comment, and aren't formatted.
 
+### `xcontent-fs-web` package
+
+Copies, deletes, reads headers of, locates and cleans packages in a `Content/` tree, through the File System Access API. As of October 2026 only Chromium-based browsers support the parts of that API it needs, so it's expected to work only in them. Its design is in `packages/xcontent-fs-web/docs/xcontent-fs-web-design-decision-record.md` and `packages/xcontent-fs-web/docs/function-design-doc.md`; the format reference is `docs/xcontent-specification.md`.
+
+It does **not** use verticals: the package is small enough without them. Each exported function has its own file in `src/` (the root of `src/` holds public code only), and everything else goes in `src/internal/`, which is never exported. `index.ts` (the root export) and `extended.ts` (`xcontent-fs-web/extended`) must not import from `internal/` (enforced by ESLint). The root object's methods (`copyTo`, `deletePackage`, `readHeaderBytes`, `locatePackage`) are plain functions in their own `src/` files, bound onto the object by `openContentRoot`.
+
+The browser's types come from TypeScript's `dom` lib. `src/runtime.d.ts` only adds the little `dom` lacks (such as `queryPermission`); keep it small. Dependencies are declared only once the package's code uses them.
+
+Work follows TDD, function by function: tests first, citing the behaviour statements in `packages/xcontent-fs-web/docs/function-design-doc.md` (for example `C1.18`), then the code, whose JSDoc references the same statements. Tests run in Node against an in-memory file system.
+
+Code is formatted with Prettier, configured in the package (`printWidth` 120, single quotes, semicolons). Run `pnpm format` in `packages/xcontent-fs-web` before finishing; `pnpm lint` and `pnpm format:check` are part of the checks.
+
 ### `xcontent` package (deprecated)
 
 The `xcontent` package uses **Vertical Slice Architecture**. Each vertical is self-contained and has no dependencies on other verticals. `index.ts` is the only place that composes across verticals.

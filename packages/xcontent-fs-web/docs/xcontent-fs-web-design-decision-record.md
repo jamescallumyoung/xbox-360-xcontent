@@ -290,6 +290,7 @@ A package is deleted as: the header, then the data files from `Data0000` **upwar
 - **No verticals.** Unlike `xcontent-header`, the package is small enough without them. Public functions live in the `src/` root, one file each; everything else lives in `src/internal/`, and is never exported.
 - **Tooling from the start:** ESLint (typescript-eslint's `strictTypeChecked`, and `xcontent-header`'s import rules) and Prettier are set up in the first stage, not added later as in `xcontent-header`. Otherwise the setup mirrors `xcontent-header`: pnpm, TypeScript 7 with TypeScript 6 for typescript-eslint, Vitest 5, ES2024.
 - **Licence:** `AGPL-3.0-only`, like `xcontent-header`.
+- **No dependency on `xcontent-header`.** No function parses a header (C1.9, D1.9, H1.8), so nothing of it is used. Dependencies are declared only when the package actually uses them. (Callers use `xcontent-header` themselves, on the bytes from `readHeaderBytes`.)
 - **Type declarations:** TypeScript's own libs (`dom`, `dom.asynciterable`) as far as possible, plus a small `runtime.d.ts` for what they lack, such as `queryPermission` (a WICG draft). No non-trivial hand-written runtime declarations.
 - **Test double:** `memfs`'s `nodeToFsa`, which already emulates Chromium's swap files, `queryPermission`, `isSameEntry` and `resolve`, wrapped by a test helper that adds FAT32's case behaviour, AppleDouble files, permission states and injected I/O failures.
 
