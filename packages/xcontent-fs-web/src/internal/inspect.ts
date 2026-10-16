@@ -5,17 +5,8 @@ import type {
   UnexpectedEntryTypeReason,
   WrongCaseReason,
 } from '../types.js';
-import { failureFrom } from './errors.js';
-import { classifyBesideHeader, dataFileIndex, hasAppleDoubleMagic } from './junk.js';
+import { findJunkBesideHeader, splitDataEntries, type DataFile } from './junk.js';
 import { listDirectory, lookupExact } from './lookup.js';
-
-/** A data file in a package's `name.data/` directory. */
-export interface DataFile {
-  name: string;
-  /** Its number: 12 for `Data0012`. */
-  index: number;
-  handle: FileSystemFileHandle;
-}
 
 /** What a package's entries are, as found on disk. */
 export interface PackageEntries {
@@ -76,29 +67,20 @@ export async function inspectPackage(
   if (options.dataContents === true && dataDirectory !== undefined) {
     const [dataListed, dataListing] = await listDirectory(dataDirectory, [...dirPath, dataName]);
     if (!dataListed) return [false, dataListing];
-    for (const [name, handle] of dataListing) {
-      const index = dataFileIndex(name);
-      if (index !== undefined && handle.kind === 'file') entries.dataFiles.push({ name, index, handle });
-      else entries.dataJunk.push(name);
-    }
-    entries.dataFiles.sort((a, b) => a.index - b.index);
+    const { dataFiles, junk } = splitDataEntries(dataListing);
+    entries.dataFiles = dataFiles;
+    entries.dataJunk = junk.map(({ name }) => name);
   }
 
   if (options.besideHeaderJunk === true) {
-    const siblings = new Set(listing.keys());
-    for (const [name, handle] of listing) {
-      if (handle.kind !== 'file') continue;
-      const kind = classifyBesideHeader(packageName, name, siblings);
-      if (kind === undefined) continue;
-      if (kind === 'apple-double') {
-        try {
-          if (!(await hasAppleDoubleMagic(handle))) continue;
-        } catch (error) {
-          return [false, [failureFrom(error, 'read', [...dirPath, name])]];
-        }
-      }
-      entries.junkBesideHeader.push(name);
-    }
+    const [found, junk] = await findJunkBesideHeader(
+      listing,
+      packageName,
+      dirPath,
+      new Set(['crswap', 'apple-double']),
+    );
+    if (!found) return [false, junk];
+    entries.junkBesideHeader = junk.map(({ name }) => name);
   }
 
   return [true, entries];

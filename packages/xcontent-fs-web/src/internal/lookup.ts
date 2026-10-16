@@ -1,4 +1,4 @@
-import type { EntryPath, IoErrorReason, PermissionDeniedReason, WrongCaseReason } from '../types.js';
+import type { AbortedReason, EntryPath, IoErrorReason, PermissionDeniedReason, WrongCaseReason } from '../types.js';
 import { failureFrom } from './errors.js';
 
 /** A directory's entries, by their names on disk, in a stable (sorted) order. */
@@ -11,19 +11,30 @@ export type Listing = ReadonlyMap<string, FileSystemDirectoryHandle | FileSystem
  * `abc`, and `handle.name` reports the spelling asked for (record §2.4). Only a
  * listing shows the names as they are on disk. Entries are sorted, so results
  * built from them are deterministic (rule 3). `path` is the directory's path,
- * for error reasons.
+ * for error reasons. With a `signal` that has been aborted, a failed listing
+ * gives `aborted` (rule 10).
  */
 export async function listDirectory(
   dir: FileSystemDirectoryHandle,
   path: EntryPath,
-): Promise<[true, Listing] | [false, [PermissionDeniedReason | IoErrorReason]]> {
+): Promise<[true, Listing] | [false, [PermissionDeniedReason | IoErrorReason]]>;
+export async function listDirectory(
+  dir: FileSystemDirectoryHandle,
+  path: EntryPath,
+  signal: AbortSignal | undefined,
+): Promise<[true, Listing] | [false, [PermissionDeniedReason | IoErrorReason | AbortedReason]]>;
+export async function listDirectory(
+  dir: FileSystemDirectoryHandle,
+  path: EntryPath,
+  signal?: AbortSignal,
+): Promise<[true, Listing] | [false, [PermissionDeniedReason | IoErrorReason | AbortedReason]]> {
   try {
     const entries: [string, FileSystemDirectoryHandle | FileSystemFileHandle][] = [];
     for await (const entry of dir.entries()) entries.push(entry);
     entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
     return [true, new Map(entries)];
   } catch (error) {
-    return [false, [failureFrom(error, 'list', path)]];
+    return [false, [failureFrom(error, 'list', path, signal)]];
   }
 }
 

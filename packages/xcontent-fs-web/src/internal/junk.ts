@@ -3,6 +3,9 @@
 // file inside `name.data/`. Used by `clean`, and by the functions that refuse a
 // package with junk in it.
 
+import type { AbortedReason, EntryPath, IoErrorReason, PermissionDeniedReason } from '../types.js';
+import { failureFrom, isNotFoundError } from './errors.js';
+import type { Listing } from './lookup.js';
 import { escapeRegExp } from './regex.js';
 
 const DATA_FILE_NAME = /^Data(\d{4})$/;
@@ -38,28 +41,33 @@ export function dataFileIndex(name: string): number | undefined {
  *   still check its magic (see {@link hasAppleDoubleMagic}): swap files are
  *   trusted by name, AppleDouble files are not.
  *
- * Chromium's counter makes `NAME.1.crswap` ambiguous: it could be the swap file
- * of a package named `NAME.1`. So a name with a counter `N` is only junk if
- * `siblingNames` (every entry in the directory) has no entry named exactly
- * `NAME.N` (J1.15).
+ * `siblings` is every entry in the directory, by name. Two names are ambiguous,
+ * and are kept when they may belong to another package (J1.15):
+ * - `NAME.N.crswap` and `._NAME.N.crswap`, if an entry named exactly `NAME.N`
+ *   exists: Chromium's counter makes them look like that package's swap file.
+ * - `._NAME.data`, if `NAME.data` is a file: then it's another package's header,
+ *   not this package's data directory, and `._NAME.data` is its AppleDouble file.
  */
 export function classifyBesideHeader(
   packageName: string,
   entryName: string,
-  siblingNames: ReadonlySet<string>,
+  siblings: ReadonlyMap<string, { readonly kind: FileSystemHandleKind }>,
 ): 'crswap' | 'apple-double' | undefined {
   const name = escapeRegExp(packageName);
   const swap = new RegExp(`^${name}(?:\\.(\\d+))?\\.crswap$`).exec(entryName);
-  if (swap !== null) return isOwnCounter(packageName, swap[1], siblingNames) ? 'crswap' : undefined;
-  const appleDouble = new RegExp(`^\\._${name}(?:\\.data|(?:\\.(\\d+))?\\.crswap)?$`).exec(entryName);
-  if (appleDouble !== null) {
-    return isOwnCounter(packageName, appleDouble[1], siblingNames) ? 'apple-double' : undefined;
-  }
-  return undefined;
+  if (swap !== null) return isOwnCounter(packageName, swap[1], siblings) ? 'crswap' : undefined;
+  const appleDouble = new RegExp(`^\\._${name}(?:(\\.data)|(?:\\.(\\d+))?\\.crswap)?$`).exec(entryName);
+  if (appleDouble === null) return undefined;
+  if (appleDouble[1] !== undefined && siblings.get(`${packageName}.data`)?.kind === 'file') return undefined;
+  return isOwnCounter(packageName, appleDouble[2], siblings) ? 'apple-double' : undefined;
 }
 
-function isOwnCounter(packageName: string, counter: string | undefined, siblingNames: ReadonlySet<string>): boolean {
-  return counter === undefined || !siblingNames.has(`${packageName}.${counter}`);
+function isOwnCounter(
+  packageName: string,
+  counter: string | undefined,
+  siblings: ReadonlyMap<string, { readonly kind: FileSystemHandleKind }>,
+): boolean {
+  return counter === undefined || !siblings.has(`${packageName}.${counter}`);
 }
 
 /**
@@ -89,4 +97,106 @@ export function junkKindOfName(name: string): 'crswap' | 'apple-double' | undefi
   if (name.startsWith('._')) return 'apple-double';
   if (name.endsWith('.crswap')) return 'crswap';
   return undefined;
+}
+
+type ReadFailure = PermissionDeniedReason | IoErrorReason | AbortedReason;
+
+/**
+ * Checks a file's AppleDouble magic, turning errors into reasons.
+ *
+ * Function design doc, J1.14 and rule 12. A file that has vanished since it was
+ * listed counts as not AppleDouble, so it's skipped rather than failing the
+ * whole operation: on macOS, removing a file also removes its AppleDouble file.
+ */
+export async function readAppleDoubleMagic(
+  file: FileSystemFileHandle,
+  path: EntryPath,
+  signal?: AbortSignal,
+): Promise<[true, boolean] | [false, [ReadFailure]]> {
+  try {
+    return [true, await hasAppleDoubleMagic(file)];
+  } catch (error) {
+    if (isNotFoundError(error)) return [true, false];
+    return [false, [failureFrom(error, 'read', path, signal)]];
+  }
+}
+
+/** A junk file beside a package's header. */
+export interface JunkFile {
+  name: string;
+  handle: FileSystemFileHandle;
+  kind: 'crswap' | 'apple-double';
+}
+
+/**
+ * Finds a package's own junk files of the given kinds in its content-type
+ * directory, from that directory's listing.
+ *
+ * Function design doc, J1.13-J1.16: {@link classifyBesideHeader} for each file,
+ * then the magic check for AppleDouble candidates. Only files count. The magic
+ * is read only for the kinds asked for.
+ */
+export async function findJunkBesideHeader(
+  listing: Listing,
+  packageName: string,
+  dirPath: EntryPath,
+  kinds: ReadonlySet<'crswap' | 'apple-double'>,
+): Promise<[true, JunkFile[]] | [false, [PermissionDeniedReason | IoErrorReason]]>;
+export async function findJunkBesideHeader(
+  listing: Listing,
+  packageName: string,
+  dirPath: EntryPath,
+  kinds: ReadonlySet<'crswap' | 'apple-double'>,
+  signal: AbortSignal | undefined,
+): Promise<[true, JunkFile[]] | [false, [ReadFailure]]>;
+export async function findJunkBesideHeader(
+  listing: Listing,
+  packageName: string,
+  dirPath: EntryPath,
+  kinds: ReadonlySet<'crswap' | 'apple-double'>,
+  signal?: AbortSignal,
+): Promise<[true, JunkFile[]] | [false, [ReadFailure]]> {
+  const found: JunkFile[] = [];
+  for (const [name, handle] of listing) {
+    if (handle.kind !== 'file') continue;
+    const kind = classifyBesideHeader(packageName, name, listing);
+    if (kind === undefined || !kinds.has(kind)) continue;
+    if (kind === 'apple-double') {
+      const [read, isAppleDouble] = await readAppleDoubleMagic(handle, [...dirPath, name], signal);
+      if (!read) return [false, isAppleDouble];
+      if (!isAppleDouble) continue;
+    }
+    found.push({ name, handle, kind });
+  }
+  return [true, found];
+}
+
+/** A data file in a package's `name.data/` directory. */
+export interface DataFile {
+  name: string;
+  /** Its number: 12 for `Data0012`. */
+  index: number;
+  handle: FileSystemFileHandle;
+}
+
+/**
+ * Splits a `name.data/` listing into its data files, in ascending numeric order
+ * (gaps allowed), and everything else, which is junk.
+ *
+ * Function design doc, J1.10: only a file named exactly `DataNNNN` is a data
+ * file. A directory with that name is junk.
+ */
+export function splitDataEntries(listing: Listing): {
+  dataFiles: DataFile[];
+  junk: { name: string; kind: FileSystemHandleKind }[];
+} {
+  const dataFiles: DataFile[] = [];
+  const junk: { name: string; kind: FileSystemHandleKind }[] = [];
+  for (const [name, handle] of listing) {
+    const index = dataFileIndex(name);
+    if (index !== undefined && handle.kind === 'file') dataFiles.push({ name, index, handle });
+    else junk.push({ name, kind: handle.kind });
+  }
+  dataFiles.sort((a, b) => a.index - b.index);
+  return { dataFiles, junk };
 }

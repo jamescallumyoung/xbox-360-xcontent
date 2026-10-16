@@ -4,7 +4,7 @@ One design per public function of `xcontent-fs-web`. Each section relies on the 
 
 - **Format reference:** [xcontent-specification.md](../../../docs/xcontent-specification.md). "§" means a section of it.
 - **Decision history and rationale:** [xcontent-fs-web-design-decision-record.md](xcontent-fs-web-design-decision-record.md), cited as "record §".
-- **Status:** in design, no code yet. Last updated 2026-10-16.
+- **Status:** being built. O1, H1, L1 and J1 are implemented. Last updated 2026-10-16.
 
 Every statement in this document is one of:
 
@@ -500,8 +500,16 @@ type CleanProgress = {
 };
 
 type CleanFailureReason =
-  InvalidLocationReason | PermissionDeniedReason | WrongCaseReason | NotFoundReason | AbortedReason | IoErrorReason;
+  | InvalidLocationReason
+  | PermissionDeniedReason
+  | WrongCaseReason
+  | NotFoundReason
+  | UnexpectedEntryTypeReason
+  | AbortedReason
+  | IoErrorReason;
 ```
+
+`UnexpectedEntryTypeReason` was added while building J1 (2026-10-16): a file where a directory belongs on the location's path (J1.3).
 
 ### Behaviour
 
@@ -509,7 +517,7 @@ type CleanFailureReason =
 
 1. An already-aborted `signal` gives `aborted` before anything else.
 2. `location` is checked by the location checks (package-wide rule 7). The root needs `readwrite` permission.
-3. Every directory on the path must exist in exactly the location's case.
+3. Every directory on the path must exist in exactly the location's case. A file where one belongs gives `unexpected-entry-type`. The header and `name.data/`, if they exist, must match `packageName` exactly too (rule 8): one existing only in another case gives `wrong-case`, and nothing is deleted. (Added while building J1, 2026-10-16: otherwise `clean` would silently do nothing for `ABC` when `abc` exists.)
 4. The header and `name.data/` don't have to exist _(inferred)_: `clean` removes whatever junk it finds, and a step with nothing to do deletes nothing.
 
 **Steps.** `clean` runs four internal functions, in this order _(inferred)_. Each takes the `signal`, lists what it will delete, then deletes it:
@@ -534,6 +542,7 @@ type CleanFailureReason =
 13. `deleteCrswapFiles` deletes files in the content-type directory matching `^NAME(\.\d+)?\.crswap$`. Swap files are trusted by name.
 14. `deleteAppleDoubleFiles` deletes files in the content-type directory matching `^\._NAME(\.data|(\.\d+)?\.crswap)?$`, **only if** they start with the AppleDouble magic `00 05 16 07`. A file shorter than 4 bytes, or with other bytes, is kept. The JSDoc says that swap files are trusted by name, and AppleDouble files are checked.
 15. **The `NAME.N` rule.** Before deleting `NAME.N.crswap` or `._NAME.N.crswap`, both functions check that no entry named exactly `NAME.N` exists in the same directory. If one does, the file is kept: it may be the swap file of a package named `NAME.N`.
+    The same reasoning keeps `._NAME.data` when `NAME.data` is a **file**: that file is another package's header, and `._NAME.data` is its AppleDouble file. (Added while building J1, 2026-10-16.)
 16. `deleteCrswapFiles`'s pattern starts at the name, so `._NAME.crswap` is left to `deleteAppleDoubleFiles` and its magic check.
 
 **Parent directories**
@@ -543,7 +552,8 @@ type CleanFailureReason =
 
 **Cancelling**
 
-19. The `signal` is checked before each deletion, and passed to each internal function. An abort part-way returns `aborted`. Junk already deleted stays deleted.
+19. The `signal` is checked before each deletion, and passed to each internal function. An abort part-way returns `aborted`, including one during the last step when nothing is left to delete. Junk already deleted stays deleted, and so does junk deleted by earlier steps when a later step fails.
+20. An entry that has vanished since it was listed counts as deleted, and an AppleDouble candidate that has vanished is skipped. On macOS, removing a file also removes its AppleDouble file, which may be next in the list (record §2.4). (Added while building J1, 2026-10-16.)
 
 ### Tests required
 
@@ -559,6 +569,8 @@ James asked (2026-10-15) for tests proving the rules never touch another package
 | `ABCD.crswap`, `._ABCD`, `XABC.crswap`, `._XABC`, `AB.crswap`             | kept     |
 | `abc.crswap`, `._abc` (wrong case)                                        | kept     |
 | `ABC.crswap.crswap`, `ABC.x.crswap`, `ABC.1.2.crswap`                     | kept     |
+| `._ABC.data` with valid magic, when a file (a package) `ABC.data` exists  | kept     |
+| `._ABC.crswap` without valid magic                                        | kept     |
 
 Also:
 

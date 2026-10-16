@@ -19,7 +19,7 @@ import { createTestDrive } from '../../__tests__/helpers/test-drive.js';
 import { DIR } from '../../__tests__/helpers/tree.js';
 import { inspectPackage } from '../inspect.js';
 import { findIgnoringCase, listDirectory, lookupExact } from '../lookup.js';
-import { openContentTypeDirectory } from '../walk.js';
+import { openContentTypeDirectory, openLocationDirectories } from '../walk.js';
 
 const CT_PATH = [DEFAULT_AT.partition, DEFAULT_AT.titleId, DEFAULT_AT.contentType];
 
@@ -268,6 +268,24 @@ describe('inspectPackage', () => {
     expect(ok).toBe(false);
     expect(reasons).toEqual([
       expect.objectContaining({ kind: 'io-error', operation: 'read', path: [...CT_PATH, '._ABC'] }),
+    ]);
+  });
+});
+
+describe('openLocationDirectories', () => {
+  it('J1.17: opens every directory on the path, from the partition down', async () => {
+    const drive = createTestDrive({ tree: stfsPackage('ABC') });
+    const [ok, dirs] = await openLocationDirectories(drive.root, locationOf('ABC'));
+    expect(ok).toBe(true);
+    if (!ok) return;
+    expect(dirs.map((dir) => dir.name)).toEqual(['0000000000000000', '4D5307E6', '00007000']);
+  });
+
+  it('rule 8: fails as openContentTypeDirectory does', async () => {
+    const drive = createTestDrive({ fat32: true, tree: { '0000000000000000/4d5307e6/00007000': DIR } });
+    expect(await openLocationDirectories(drive.root, locationOf('ABC'))).toEqual([
+      false,
+      [{ kind: 'wrong-case', path: ['0000000000000000', '4D5307E6'], found: '4d5307e6' }],
     ]);
   });
 });

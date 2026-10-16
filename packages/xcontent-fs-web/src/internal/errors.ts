@@ -50,3 +50,12 @@ function describe(error: unknown): { name: string; message: string } {
   }
   return { name: 'Error', message: String(error) };
 }
+
+/**
+ * Whether the browser reported that an entry doesn't exist. Used where an entry
+ * listed a moment ago may have gone since: on macOS, removing a file also
+ * removes its AppleDouble file (design record §2.4).
+ */
+export function isNotFoundError(error: unknown): boolean {
+  return describe(error).name === 'NotFoundError';
+}
