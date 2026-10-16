@@ -29,8 +29,8 @@ These rules apply to every function. They belong in the README as well as here.
 
 1. **Async result tuples.** Every function returns a promise of a tuple whose first element says whether it succeeded. On success the tuple is `[true]`, or `[true, value]` for functions that produce something. On failure it is `[false, reasons]`, where `reasons` is a non-empty list.
 2. **No exceptions for expected failures.** Bad input, missing or unexpected entries, permission problems, I/O errors and aborts all become reasons. An exception thrown by the caller's `onProgress` doesn't fail the function either (rule 11).
-3. **The order of reasons is not part of the contract** _(inferred)_. It's deterministic, but may change between versions.
-4. **How many reasons.** A function reports every invalid field of a `PackageLocation` together, and one reason per junk entry. Every other check ends the function at the first failure _(inferred)_.
+3. **The order of reasons is not part of the contract.** It's deterministic, but may change between versions.
+4. **How many reasons.** A function reports every invalid field of a `PackageLocation` together, and one reason per junk entry. Every other check ends the function at the first failure.
 5. **All checks run before anything is changed** on disk, so a failed check leaves the drive as it was.
 6. **Locations are copied on entry.** A function copies the four strings of its `PackageLocation` when called, as `fetch` copies its options, and never reads the caller's object again.
 7. **Location checks** (record §3.2, §3.3), shared by every function that takes a `PackageLocation`:
@@ -78,7 +78,7 @@ type IoErrorReason = {
 type IoOperation = 'list' | 'open' | 'create' | 'read' | 'write' | 'close' | 'remove' | 'verify-size';
 ```
 
-The fields beyond `kind` are _(inferred)_: the design fixed the reasons, not their exact shapes.
+The fields beyond `kind` were confirmed by James on 2026-10-16.
 
 ---
 
@@ -187,7 +187,7 @@ type CopyToFailureReason =
       | JunkReason
       | { kind: 'target-exists'; path: EntryPath } // path: the existing entry, in its on-disk spelling
       | IoErrorReason
-    ) & { root: 'source' | 'target' }) // _(inferred)_
+    ) & { root: 'source' | 'target' })
   | AbortedReason;
 ```
 
