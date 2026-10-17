@@ -97,6 +97,8 @@ export type AppStatus = 'error' | 'no-vault' | 'no-drive' | 'copying' | 'ready' 
 
 /** How far an apply has got (A1.7). */
 export interface ApplyProgress {
+  /** The change in progress. */
+  change: Change;
   /** The index of the change in progress, in apply order. */
   index: number;
   /** The number of changes being applied. */

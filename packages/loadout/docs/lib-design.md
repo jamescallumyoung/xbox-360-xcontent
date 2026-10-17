@@ -131,8 +131,9 @@ Conventions, shared by every module:
 - **A1.4** After each change, `shouldStop()` is checked. If it returns `true` and changes remain, the run ends with `stopped: true`.
 - **A1.5** On the first failure, the run ends. The result names the failed change and its reasons, and no later change is attempted.
 - **A1.6** The result lists the applied changes in order.
-- **A1.7** `onProgress` reports the current change's index, the fraction of it done, and the overall fraction. An add weighs its `bytesOf` value, and a removal weighs 1 MiB. The current change's fraction comes from `copyTo`'s bytes or `deletePackage`'s files.
+- **A1.7** `onProgress` reports the change in progress, its index in apply order, the fraction of it done, and the overall fraction, which never goes down. An add weighs its `bytesOf` value, and a removal weighs 1 MiB. The current change's fraction comes from `copyTo`'s bytes or `deletePackage`'s files. A callback that throws is logged, and the apply carries on.
 - **A1.8** An empty queue returns at once, with nothing applied.
+- **A1.10** `runApply` knows only locations. The caller keeps the `Package` for each change from before the apply, because a removed package is gone from the next scan, and the report needs it (RP1.1).
 - **A1.9** **A failed add cleans up after itself** when its first reason is an `io-error` on the target during `create`, `write`, `close` or `verify-size`. `copyTo` does those only after checking the target was free, so everything at the location was written by this copy. It runs `clean`, then `deletePackage`, ignoring their results: if the drive is gone, the next scan lists the leftover as corrupt (S1.9, S1.10). Any other failure leaves the drive alone.
 
 ## RP1 `report.ts`: the apply report (from the POC)
@@ -145,7 +146,7 @@ Conventions, shared by every module:
 
 - **RF1.1** `saveReportToDrive(report, driveHandle, picker)` opens the save dialog starting at the drive, with the report's file name.
 - **RF1.2** A cancelled dialog returns `cancelled`.
-- **RF1.3** A file inside the drive's partition root (`driveHandle.resolve(file)` isn't `null`) isn't written: the empty file the browser made is removed if it can be, and it returns `inside-partition-root`.
+- **RF1.3** A file inside the drive's partition root (`driveHandle.resolve(file)` isn't `null`) isn't written. If the file there is empty, which is what the browser makes when a file is picked, it's removed, best-effort. A file with contents is kept. It returns `inside-partition-root` either way.
 - **RF1.4** Otherwise it writes the report's JSON and returns `saved` with the file's name.
 - **RF1.5** `downloadReport(report)` downloads it through a temporary link. It isn't unit-tested.
 

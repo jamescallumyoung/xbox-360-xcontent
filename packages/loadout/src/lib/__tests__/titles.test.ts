@@ -300,7 +300,13 @@ describe('resolveAppStatus', () => {
   const base = { errorCount: 0, vaultReady: true, driveReady: true, copying: null, queuedCount: 0 };
 
   it('shows one status, highest priority first (T1.11)', () => {
-    const copying = { index: 0, total: 1, changeFraction: 0, fraction: 0 };
+    const copying = {
+      change: { op: 'add', location: pkg().location },
+      index: 0,
+      total: 1,
+      changeFraction: 0,
+      fraction: 0,
+    } as const;
     expect(resolveAppStatus({ ...base, errorCount: 1, vaultReady: false })).toBe('error');
     expect(resolveAppStatus({ ...base, vaultReady: false, driveReady: false })).toBe('no-vault');
     expect(resolveAppStatus({ ...base, driveReady: false, copying })).toBe('no-drive');

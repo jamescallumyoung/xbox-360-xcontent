@@ -121,3 +121,48 @@ export function fakeFolder(files: Record<string, () => File>): FileSystemDirecto
   }
   return root as unknown as FileSystemDirectoryHandle;
 }
+
+/**
+ * Wraps a folder so that one method fails with a `DOMException` named `error`
+ * when called on, or for, the entry `name`, anywhere below it:
+ * `getDirectoryHandle` (looked up by name) or `createWritable` (on the file).
+ */
+export function faulty(
+  handle: FileSystemDirectoryHandle,
+  fault: { method: 'getDirectoryHandle' | 'createWritable'; name: string; error: string },
+): FileSystemDirectoryHandle {
+  const fail = () => Promise.reject(new DOMException('Injected fault.', fault.error));
+  const wrap = <T extends object>(target: T): T =>
+    new Proxy(target, {
+      get(inner, property, receiver): unknown {
+        const value: unknown = Reflect.get(inner, property, receiver);
+        if (typeof value !== 'function') return value;
+        const method = (value as (...args: unknown[]) => unknown).bind(inner);
+        if (property === 'createWritable') {
+          return (inner as unknown as FileSystemHandle).name === fault.name && fault.method === 'createWritable'
+            ? fail
+            : method;
+        }
+        if (property === 'entries') {
+          return async function* () {
+            for await (const [name, entry] of (inner as unknown as FileSystemDirectoryHandle).entries()) {
+              yield [name, wrap(entry)];
+            }
+          };
+        }
+        if (property === 'values') {
+          return async function* () {
+            for await (const entry of (inner as unknown as FileSystemDirectoryHandle).values()) yield wrap(entry);
+          };
+        }
+        if (property === 'getFileHandle' || property === 'getDirectoryHandle') {
+          return async (name: string, options?: unknown) => {
+            if (property === fault.method && name === fault.name) return fail();
+            return wrap((await method(name, options)) as object);
+          };
+        }
+        return method;
+      },
+    });
+  return wrap(handle);
+}
