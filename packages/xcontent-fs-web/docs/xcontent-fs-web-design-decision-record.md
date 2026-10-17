@@ -1,6 +1,6 @@
 # `xcontent-fs-web`: design decision record
 
-**Status:** implemented, as version 0.1.0. Final verification (record §8) is pending. Last updated 2026-10-17.
+**Status:** implemented as version 0.1.0, and verified on real drives (§2.5). Last updated 2026-10-17.
 
 This records the decisions made while designing the public API of `xcontent-fs-web`, the package that copies and deletes Xbox 360 packages in a `Content/` tree from a web page. It's for James and for any agent continuing the work. The format reference is [xcontent-specification.md](../../../docs/xcontent-specification.md). Section numbers (§) below refer to it. Each function's behaviour is specified in [function-design-doc.md](function-design-doc.md).
 
@@ -71,7 +71,7 @@ The package needs `showDirectoryPicker()` to get a handle to a real folder, and 
 These facts shaped the copy design. Most were checked on a real drive (§2.4).
 
 - `getFileHandle(name, { create: true })` creates an **empty file** straight away.
-- `createWritable()` writes into a **swap file**, `<name>.crswap`, beside the target. `close()` replaces the target with it in one step. `abort()`, or abandoning the stream, deletes it. Only a hard stop (a crash, a power cut, a pulled drive) leaves it behind.
+- `createWritable()` writes into a **swap file**, `<name>.crswap`, beside the target. `close()` replaces the target with it in one step. `abort()`, or abandoning the stream, deletes it, and so does closing the tab. Only a hard stop (a crash, a power cut, a pulled drive) leaves it behind (confirmed in §2.5).
 - **Why the swap file exists:** the File System standard requires that writes don't show in the file until the stream is closed, and Chromium runs its security checks (Safe Browsing, and the operating system's "downloaded from the internet" marker) on the finished file before it gets its real name.
 - **If `<name>.crswap` already exists,** Chromium uses `<name>.1.crswap`, and so on.
 - **So each file is written all at once, or not at all.** That's the only guarantee. There's no way to append to a file without first copying it whole into a new swap file (`keepExistingData: true`), and no way to join files.
@@ -93,7 +93,47 @@ A test page (`fsa-probe`) was run by James on Chrome 155.0.8059.40, macOS 26.3, 
 | `move()`                                          | Present on file handles, absent on directory handles                                                                                                                                                                                                                            |
 | **AppleDouble files**                             | macOS wrote a 4 KiB `._<name>` file beside **every file and directory** Chrome created, including `._Data0000`, `._Data0000.crswap` and `._4d5307e6`. Deleting a file also deleted its `._` file.                                                                               |
 
-Not yet tested: what a pulled drive or closed tab leaves part-way through a write (the probe's T7), and copying a real data file from a vault (T6).
+The probe's T6 (copying real data files) and T7 (what an interruption leaves) were run with the finished package, in §2.5.
+
+### 2.5 Final verification (2026-10-17)
+
+The built package (0.1.0, from commit `cd8d590`) was run by James in a test page (`verify`), on Chrome 155.0.8059.80 and macOS 26.3. The source was a vault `Content/` folder, opened read-only. The target was a scratch folder on an APFS volume, then on a FAT32 USB drive. The packages were a disc install (SVOD, 37 data files, 6.2 GB), a GOD (SVOD, 3 data files) and two avatar items (STFS).
+
+**Every function worked as designed, on both volumes:**
+
+- `openContentRoot` opened both roots, and copying a root onto itself gave `same-root`.
+- `locatePackage` found each package from its header file, in 11-26 ms.
+- `readHeaderBytes` read `0xB000` bytes (magics `CON `, `LIVE`, `PIRS`), each in an array with its own buffer.
+- `copyTo` copied every package with every file the same size, and an identical header. A second copy gave `target-exists`.
+- `deletePackage` removed each copy (the 38-file disc install in 327 ms), leaving the empty parent directories.
+
+**T6, copying real data files:**
+
+| Target          | Speed          | A full data file (`0xA290000` bytes) |
+| --------------- | -------------- | ------------------------------------ |
+| APFS volume     | about 35 MiB/s | about 4.6 s                          |
+| FAT32 USB drive | 14-26 MiB/s    | 6-11 s                               |
+
+The whole 6.2 GB disc install took 2 min 25 s to 2 min 52 s on APFS.
+
+**AppleDouble files:**
+
+- **On FAT32,** macOS wrote one beside each file and directory Chrome created: the header, the `.data` directory, each data file, each new parent directory, and each swap file (`._Data0002.crswap`). Parent directories that already existed got none.
+- **On APFS, none,** because APFS stores extended attributes itself.
+- **`cleanOutput` and `clean` removed exactly the package's own,** including its parent directories', and left another folder's AppleDouble files untouched.
+
+**T7, an interrupted copy.** Each run interrupted the first data file (`Data0002`) of the GOD on FAT32:
+
+| How               | `copyTo` returned                                                 | Left behind                                                       |
+| ----------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Stop (`abort()`)  | `aborted`, with the caller's reason                               | a `.data/` with an empty `Data0002`, no swap file, no header      |
+| Closing the tab   | (the page was gone)                                               | the same: Chromium deleted the swap file                          |
+| Pulling the drive | `io-error` for the target, operation `write`, `InvalidStateError` | an empty `Data0002` **and** `Data0002.crswap` (56 MiB), no header |
+
+- **Every state matches §5.2's table,** and each was cleaned up by `clean` then `deletePackage`.
+- **A pulled drive shows up as `InvalidStateError` on the write in progress,** not `NotFoundError`. Every operation after it fails with `NotFoundError` until the drive is back.
+- **A pulled drive's swap file held less data (56 MiB) than progress had reported (60 MiB),** presumably because the rest was still buffered.
+- **Not tested:** whether a handle works again once the drive is reconnected. James picked the folders again, which is the safe route. Loadout's design leaves this open too.
 
 ---
 
@@ -156,6 +196,7 @@ Long-running functions take the two options developers know from existing web AP
 The File System Access API throws `DOMException`s: `NotFoundError` (also how a pulled drive shows up), `NotAllowedError`, `SecurityError`, `TypeMismatchError`, `InvalidModificationError`, `NoModificationAllowedError`, `QuotaExceededError` (probably a full drive; unconfirmed), `NotReadableError`, `InvalidStateError` (Chromium's catch-all: the probe got it for a name that was too long) and `AbortError`.
 
 - **They become two reasons:** `permission-denied` (from `NotAllowedError` and `SecurityError`), because the caller can act on it by asking for permission again; and `io-error` for everything else, carrying the operation, the path and the exception's `name` and `message`.
+- **A pulled drive** shows up as `InvalidStateError` on a write in progress, then `NotFoundError` for everything after it (§2.5). Both are `io-error`.
 - **Why so few:** Chromium's mapping is coarse ("name too long" is `InvalidStateError`; a pulled drive looks like a deleted file), so a reason named after the exception would often mislead. And to a caller, most of them mean the same: stop, and tell the user.
 
 ### 3.6 Junk files
@@ -294,7 +335,7 @@ A package is deleted as: the header, then the data files from `Data0000` **upwar
 - **Type declarations:** TypeScript's own libs (`dom`, `dom.asynciterable`) as far as possible, plus a small `runtime.d.ts` for what they lack, such as `queryPermission` (a WICG draft). No non-trivial hand-written runtime declarations.
 - **Test double:** `memfs`'s `nodeToFsa`, which already emulates Chromium's swap files, `queryPermission`, `isSameEntry` and `resolve`, wrapped by a test helper that adds FAT32's case behaviour, AppleDouble files, permission states and injected I/O failures.
 
-**Still open:** the probe's T6 and T7 (§2.4), planned for after the last stage.
+**Verified** on real drives on 2026-10-17, including the probe's T6 and T7 (§2.5). **Open for later:** whether a handle works again once its drive is reconnected.
 
 ---
 
@@ -303,3 +344,4 @@ A package is deleted as: the header, then the data files from `Data0000` **upwar
 - **§7.4:** data files are copied from the highest number down; one write per file; Chromium's swap files and macOS's AppleDouble files described; FATX targets need names short enough for swap files.
 - **§7.6:** the delete order reversed: the header first, then the data files from `Data0000` up, then the directory.
 - **§8.3 and §8.10:** the probe added as primary research.
+- **§7.4 and §8.3 (2026-10-17):** what each kind of interruption leaves (closing the tab deletes the swap file; a pulled drive leaves it), AppleDouble files beside swap files, and none on APFS, from the final verification (§2.5).

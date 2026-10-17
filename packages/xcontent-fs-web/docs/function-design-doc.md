@@ -4,7 +4,7 @@ One design per public function of `xcontent-fs-web`. Each section relies on the 
 
 - **Format reference:** [xcontent-specification.md](../../../docs/xcontent-specification.md). "§" means a section of it.
 - **Decision history and rationale:** [xcontent-fs-web-design-decision-record.md](xcontent-fs-web-design-decision-record.md), cited as "record §".
-- **Status:** implemented: O1, H1, L1, J1, D1 and C1. Every statement once marked _(inferred)_, and every change made during review, was approved by James on 2026-10-17. Final verification is pending. Last updated 2026-10-17.
+- **Status:** implemented: O1, H1, L1, J1, D1 and C1. Every statement once marked _(inferred)_, and every change made during review, was approved by James on 2026-10-17. Verified on real drives on 2026-10-17 (record §2.5). Last updated 2026-10-17.
 
 Every statement in this document is one of:
 
