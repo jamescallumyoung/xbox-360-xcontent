@@ -1,36 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FLAG_KEY, isHardRefresh, openSession, readFlag, type KeyValueStore, type TabStorage } from '../session.js';
+import { FLAG_KEY, isHardRefresh, openSession, readFlag, type KeyValueStore } from '../session.js';
 import type { Change } from '../types.js';
 import { folder } from './helpers/drive.js';
-
-function memoryTab(): TabStorage {
-  const items = new Map<string, string>();
-  return {
-    getItem: (key) => items.get(key) ?? null,
-    setItem: (key, value) => {
-      items.set(key, value);
-    },
-    removeItem: (key) => {
-      items.delete(key);
-    },
-  };
-}
-
-function memoryDb(): KeyValueStore {
-  const items = new Map<string, unknown>();
-  return {
-    get: (key) => Promise.resolve(items.get(key)),
-    set: (key, value) => {
-      items.set(key, value);
-      return Promise.resolve();
-    },
-    delete: (key) => {
-      items.delete(key);
-      return Promise.resolve();
-    },
-    keys: () => Promise.resolve([...items.keys()]),
-  };
-}
+import { memoryDb, memoryTab } from './helpers/memory.js';
 
 const vault = folder({}, { name: 'Vault' }).handle;
 const drive = folder().handle;

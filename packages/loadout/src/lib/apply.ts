@@ -73,15 +73,21 @@ function wroteToTarget(reason: CopyToFailureReason | undefined): boolean {
   return reason?.kind === 'io-error' && reason.root === 'target' && WRITING.has(reason.operation);
 }
 
+/** The order changes are applied in: every removal, then every add, each in queue order (A1.1). */
+export function applyOrder(changes: readonly Change[]): Change[] {
+  return [...changes.filter((c) => c.op === 'remove'), ...changes.filter((c) => c.op === 'add')];
+}
+
 /**
  * Applies the queue: every removal, then every add, each in queue order (A1.1).
  * It stops at the first failure (A1.5), or between changes when `shouldStop`
  * says so (A1.4). There's no abort: a change in progress always finishes.
  */
 export async function runApply(changes: readonly Change[], options: ApplyOptions): Promise<ApplyResult> {
-  const order = [...changes.filter((c) => c.op === 'remove'), ...changes.filter((c) => c.op === 'add')].map(
-    (change) => ({ change, weight: change.op === 'add' ? options.bytesOf(change) : REMOVAL_WEIGHT }),
-  );
+  const order = applyOrder(changes).map((change) => ({
+    change,
+    weight: change.op === 'add' ? options.bytesOf(change) : REMOVAL_WEIGHT,
+  }));
   const totalWeight = order.reduce((sum, { weight }) => sum + weight, 0);
   const applied: Change[] = [];
   let doneWeight = 0;

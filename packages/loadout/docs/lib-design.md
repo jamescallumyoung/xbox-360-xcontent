@@ -38,6 +38,7 @@ Conventions, shared by every module:
 - **F1.3** `permission-denied` is `error`, with the message "Loadout no longer has permission to use this folder."
 - **F1.4** Any other failure is `error`, with a plain-language message: `NotReadableError` says the drive may be faulty or in use, `InvalidStateError` says the folder changed while being read, and anything else gives the browser's message.
 - **F1.5** `healthFromError(error)` applies F1.2 to F1.4 to a caught exception, for code that reads the folder itself.
+- **F1.6** `openFolder(handle, mode)` returns the opened root, or `[false, health]` as in F1.2 to F1.4.
 
 ## S1 `scan.ts`: the per-package scan (X2)
 
@@ -164,20 +165,20 @@ The session holds the vault and drive handles and the queue. Storage is injected
 
 ## ST1 `app/store.ts`: the store
 
-The store is the app's single state object. It holds all state, exposes actions, and emits `change` after each one. Components only read it and call its actions. It uses `src/lib/` directly. Only the session and the folder-poll interval are injected.
+The store is the app's single state object. It holds all state, exposes actions, and emits `change` after each one. Components only read it and call its actions. It uses `src/lib/` directly. The session is passed to `start(session)`; the folder-poll interval and toast time are constructor options.
 
 **Setup**
 
 - **ST1.1** `pick(role, handle)` sets that side to `checking`, then checks it with P1 (`allowEmpty` for the drive only), and sets `valid` or `invalid` with a message.
 - **ST1.2** A result for a pick that has since been replaced is ignored.
 - **ST1.3** `canContinue` is true only when both sides are valid.
-- **ST1.4** `continue()` opens both roots (`read` for the vault, `readwrite` for the drive), scans both, saves the session and shows Discover. While scanning, `scanning` is set.
+- **ST1.4** `continue()`, from the welcome screen, opens both roots (`read` for the vault, `readwrite` for the drive), scans both, saves the session and shows Discover. While it runs, `scanning` is set, and another `continue()` or a `pick()` does nothing.
 - **ST1.5** A failed open or scan leaves the welcome screen up, with the side's error.
 
 **Queue**
 
 - **ST1.6** `toggleAdd(location)` queues an add when T1.6c's `canAdd` allows it, or removes a queued one.
-- **ST1.7** A change for the same op and location is never queued twice.
+- **ST1.7** While an apply runs, the queue can't change: `toggleAdd`, `requestRemove`, `confirmPendingRemoval` and `undo` do nothing.
 - **ST1.8** `requestRemove(location)` does nothing unless `canRemove` allows it. It uses R1: with `none` it queues the removal; otherwise it sets `pendingRemoval` with the risk. A queued removal is removed instead.
 - **ST1.9** `confirmPendingRemoval()` queues it; `cancelPendingRemoval()` drops it.
 - **ST1.10** `undo(change)` removes one change.
@@ -186,7 +187,7 @@ The store is the app's single state object. It holds all state, exposes actions,
 
 **Applying**
 
-- **ST1.13** `startApply()` does nothing while `applyBlocked` is set, while an apply runs, or with an empty queue.
+- **ST1.13** `startApply()` does nothing while `applyBlocked` is set, while an apply or a scan runs, or with an empty queue. `apply.order` lists the changes in the order they run (A1.1), for the queue page's rows.
 - **ST1.14** On success, the queue is emptied, the drive is rescanned (ST1.23), and `report` is set.
 - **ST1.15** `stopApply()` makes the run stop after the current change. The applied changes leave the queue; the rest stay. The drive is rescanned. No report is set; a toast says how many were applied.
 - **ST1.16** On failure, the applied changes leave the queue, the rest stay, and `errors` holds the M1 sentence. The drive is rescanned, and both folders' health is checked.
@@ -199,8 +200,11 @@ The store is the app's single state object. It holds all state, exposes actions,
 
 **Reset and reload**
 
-- **ST1.20** `reset()` clears all state and the session, and shows the welcome screen.
-- **ST1.21** `restore()` loads the session. With saved handles it shows the Reconnect screen; otherwise the welcome screen.
+- **ST1.20** `reset()` clears all state, toasts and the session, and shows the welcome screen. It does nothing while an apply runs, and neither does `requestReset()`.
+- **ST1.21** `start(session)` loads the session. With saved handles it shows the Reconnect screen, with the saved queue; otherwise the welcome screen. Until then the phase is `starting`.
 - **ST1.22** `reconnect()` runs after the component has asked for permission on both handles. Each side is checked with P1, like a pick (ST1.1). A side that isn't usable (permission not granted, folder missing, or no longer a partition root) shows its problem, and the Reconnect screen stays, so the user can click again or start over.
 - **ST1.22a** When both sides are usable, it continues as ST1.4, keeping the saved queue except changes that no longer apply: an add the vault no longer has, or whose package is now on the drive, and a removal the drive no longer has. A toast says how many were dropped.
 - **ST1.23** `rescan()` scans the drive again. It does nothing while applying or scanning. If it fails, the drive's health is set from the failure, and the previous scan is kept.
+- **ST1.24** An async action (continue, reconnect, rescan, folder check) whose result arrives after a `reset()` drops it.
+- **ST1.25** When a folder check finds a folder connected again after a disconnect or error, that folder is rescanned, and queued changes that no longer apply are dropped, as in ST1.22a.
+- **ST1.26** A toast goes after the toast time.

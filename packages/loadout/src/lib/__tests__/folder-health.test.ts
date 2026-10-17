@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkFolder, healthFromError } from '../folder-health.js';
+import { checkFolder, healthFromError, openFolder } from '../folder-health.js';
 import { folder, pulled } from './helpers/drive.js';
 
 describe('checkFolder', () => {
@@ -42,5 +42,17 @@ describe('healthFromError', () => {
     });
     expect(healthFromError(new Error('Odd failure'))).toEqual({ state: 'error', message: 'Odd failure' });
     expect(healthFromError('weird')).toEqual({ state: 'error', message: 'Unknown error reading the folder.' });
+  });
+});
+
+describe('openFolder', () => {
+  it('opens a folder as a root in its mode, or gives its health (F1.6)', async () => {
+    const [ok, root] = await openFolder(folder().handle, 'readwrite');
+    expect(ok).toBe(true);
+    expect(root).toMatchObject({ mode: 'readwrite' });
+    expect(await openFolder(pulled(folder().handle), 'read')).toEqual([
+      false,
+      { state: 'disconnected', message: "The folder can't be found. Is the drive plugged in?" },
+    ]);
   });
 });

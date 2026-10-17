@@ -1,6 +1,6 @@
 // Can a folder be used right now? (docs/lib-design.md, F1)
 
-import { openContentRoot, type OpenContentRootFailureReason } from 'xcontent-fs-web';
+import { openContentRoot, type ContentRoot, type OpenContentRootFailureReason } from 'xcontent-fs-web';
 import type { FolderHealth } from './types.js';
 
 const NO_PERMISSION = 'Loadout no longer has permission to use this folder.';
@@ -43,6 +43,15 @@ function healthFromReason(reason: OpenContentRootFailureReason | undefined): Fol
   }
 }
 
+/** Opens a folder as a root, or says why it can't be used (F1.6). */
+export async function openFolder(
+  handle: FileSystemDirectoryHandle,
+  mode: 'read' | 'readwrite',
+): Promise<[true, ContentRoot] | [false, FolderHealth]> {
+  const [ok, result] = await openContentRoot(handle, { mode });
+  return ok ? [true, result] : [false, healthFromReason(result[0])];
+}
+
 /**
  * Checks a folder by opening it with `openContentRoot`, which checks permission
  * in `mode` and reads one entry (F1.1-F1.4).
@@ -51,6 +60,6 @@ export async function checkFolder(
   handle: FileSystemDirectoryHandle,
   mode: 'read' | 'readwrite',
 ): Promise<FolderHealth> {
-  const [ok, result] = await openContentRoot(handle, { mode });
-  return ok ? { state: 'connected' } : healthFromReason(result[0]);
+  const [ok, result] = await openFolder(handle, mode);
+  return ok ? { state: 'connected' } : result;
 }

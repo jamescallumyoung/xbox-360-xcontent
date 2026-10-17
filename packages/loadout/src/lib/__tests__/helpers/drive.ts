@@ -15,6 +15,8 @@ export interface TestFolder {
   touch: (path: string, ms: number) => void;
   /** The folder's entries, as sorted paths; directories end with `/`. */
   list: () => string[];
+  /** Deletes a file or directory, behind the handle's back. */
+  remove: (path: string) => void;
 }
 
 /**
@@ -54,6 +56,9 @@ export function folder(
       fs.utimesSync(`${base}/${path}`, ms / 1000, ms / 1000);
     },
     list: () => list(base),
+    remove: (path) => {
+      fs.rmSync(`${base}/${path}`, { recursive: true });
+    },
   };
 }
 
@@ -165,4 +170,30 @@ export function faulty(
       },
     });
   return wrap(handle);
+}
+
+/** A handle that works until `pull()`, then behaves as `pulled` does, until `plugIn()`. */
+export function pullable(handle: FileSystemDirectoryHandle): {
+  handle: FileSystemDirectoryHandle;
+  pull: () => void;
+  plugIn: () => void;
+} {
+  let gone = false;
+  const away = pulled(handle);
+  const proxy = new Proxy(handle, {
+    get(_target, property): unknown {
+      const source = gone ? away : handle;
+      const value: unknown = Reflect.get(source, property);
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(source) : value;
+    },
+  });
+  return {
+    handle: proxy,
+    pull: () => {
+      gone = true;
+    },
+    plugIn: () => {
+      gone = false;
+    },
+  };
 }
