@@ -174,7 +174,7 @@ export class LibraryFilters extends LitElement {
             this.emit(f, TITLE_SORTS.find((s) => s === value) ?? 'name');
           }}
         >
-          ${TITLE_SORTS.map((v) => html`<option value=${v}>${SORT_LABELS[v]}</option>`)}
+          ${TITLE_SORTS.map((v) => html`<option value=${v} ?selected=${v === this.sort}>${SORT_LABELS[v]}</option>`)}
         </select>
       </div>
     </div>`;

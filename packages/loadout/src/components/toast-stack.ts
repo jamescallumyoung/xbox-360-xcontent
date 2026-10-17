@@ -6,14 +6,24 @@ import { icon } from '../styles/icons.js';
 
 import type { Toast } from '../app/store.js';
 
-/** Bottom-right stack of short notifications. The owner adds and expires items. */
+/**
+ * Bottom-right stack of short notifications, in the browser's top layer, so a
+ * modal dialog doesn't hide them. The owner adds and expires items.
+ */
 @customElement('toast-stack')
 export class ToastStack extends LitElement {
   static override styles = [
     base,
     css`
+      /* A manual popover, so toasts show above modal dialogs; these undo the browser's popover styles. */
       :host {
         position: fixed;
+        inset: auto;
+        margin: 0;
+        border: 0;
+        padding: 0;
+        background: none;
+        overflow: visible;
         right: 1.25rem;
         bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
         z-index: 70;
@@ -80,6 +90,17 @@ export class ToastStack extends LitElement {
   ];
 
   @property({ attribute: false }) accessor items: Toast[] = [];
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this.setAttribute('popover', 'manual');
+  }
+
+  /** Shows the stack in the top layer while it has toasts, above any dialog opened since. */
+  override updated(): void {
+    if (this.matches(':popover-open')) this.hidePopover();
+    if (this.items.length > 0) this.showPopover();
+  }
 
   override render(): TemplateResult {
     return html`<div aria-live="polite" style="display:contents">

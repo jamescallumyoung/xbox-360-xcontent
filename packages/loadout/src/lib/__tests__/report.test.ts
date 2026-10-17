@@ -40,6 +40,7 @@ describe('buildApplyReport', () => {
       version: 1,
       appliedAt: '2026-10-17T10:01:30.400Z',
       durationSeconds: 90,
+      stopped: false,
       vault: { folderName: 'Content' },
       drive: { folderName: 'Content' },
       summary: {
@@ -50,6 +51,19 @@ describe('buildApplyReport', () => {
       },
       changes: [remove, add, add2],
     });
+  });
+
+  it('records a stopped apply (RP1.2)', () => {
+    const at = new Date(0);
+    const report = buildApplyReport({
+      changes: [],
+      startedAt: at,
+      finishedAt: at,
+      vaultFolderName: 'v',
+      driveFolderName: 'd',
+      stopped: true,
+    });
+    expect(report.stopped).toBe(true);
   });
 
   it('never gives a negative duration (RP1.2)', () => {

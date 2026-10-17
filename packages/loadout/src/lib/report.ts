@@ -27,6 +27,8 @@ export interface ApplyReport {
   version: 1;
   appliedAt: string;
   durationSeconds: number;
+  /** True when the user stopped the apply part-way: the changes listed are the ones applied. */
+  stopped: boolean;
   /** Folder names only: the browser never reveals absolute paths. */
   vault: { folderName: string };
   drive: { folderName: string };
@@ -65,6 +67,7 @@ export function buildApplyReport(input: {
   finishedAt: Date;
   vaultFolderName: string;
   driveFolderName: string;
+  stopped?: boolean;
 }): ApplyReport {
   const { changes } = input;
   const ofOp = (op: ChangeOp) => changes.filter((c) => c.op === op);
@@ -73,6 +76,7 @@ export function buildApplyReport(input: {
     format: 'loadout.apply-report',
     version: 1,
     appliedAt: input.finishedAt.toISOString(),
+    stopped: input.stopped ?? false,
     durationSeconds: Math.max(0, Math.round((input.finishedAt.getTime() - input.startedAt.getTime()) / 1000)),
     vault: { folderName: input.vaultFolderName },
     drive: { folderName: input.driveFolderName },

@@ -1,21 +1,20 @@
 // Library views over scanned titles (docs/lib-design.md, T1). Pure functions.
 
-import {
-  TITLE_SORTS,
-  type AppStatus,
-  type Change,
-  type ApplyProgress,
-  type DriveStatus,
-  type DriveSummary,
-  type GameType,
-  type LibraryTitle,
-  type Package,
-  type PackageKind,
-  type PackageLocation,
-  type PackageRow,
-  type Title,
-  type TitleFilters,
-  type TitleSort,
+import type {
+  AppStatus,
+  Change,
+  ApplyProgress,
+  DriveStatus,
+  DriveSummary,
+  GameType,
+  LibraryTitle,
+  Package,
+  PackageKind,
+  PackageLocation,
+  PackageRow,
+  Title,
+  TitleFilters,
+  TitleSort,
 } from './types.js';
 
 const MB = 2 ** 20;
@@ -212,35 +211,6 @@ export function describeEmpty(f: TitleFilters = {}): string {
   const withPart = kinds.length > 0 ? ` with ${listJoin(kinds)}` : '';
   if (prefix === '' && noun === 'titles' && where === '' && withPart === '') return 'There are no titles to show.';
   return `There are no ${prefix}${noun}${withPart}${where}.`;
-}
-
-/** The Library URL for a set of filters and a sort (T1.10). */
-export function libraryUrl(f: TitleFilters = {}, sort: TitleSort = 'name'): string {
-  const q = new URLSearchParams();
-  if (f.status !== undefined && f.status !== 'all') q.set('status', f.status);
-  if (f.gameType !== undefined) q.set('type', f.gameType === 'GOD' ? 'god' : 'other');
-  if (f.hasTitleUpdate === true) q.set('tu', '1');
-  if (f.hasDlc === true) q.set('dlc', '1');
-  if (f.hasOtherContent === true) q.set('other', '1');
-  if (sort !== 'name') q.set('sort', sort);
-  const s = q.toString();
-  return s === '' ? '/library' : `/library?${s}`;
-}
-
-/** Reads filters and a sort back from a Library URL, ignoring unknown values (T1.10). */
-export function parseLibraryUrl(url: string): { filters: TitleFilters; sort: TitleSort } {
-  const q = new URL(url, 'https://loadout.invalid').searchParams;
-  const filters: TitleFilters = {};
-  const status = q.get('status');
-  if (status === 'on-drive' || status === 'not-on-drive' || status === 'queued') filters.status = status;
-  const type = q.get('type');
-  if (type === 'god') filters.gameType = 'GOD';
-  if (type === 'other') filters.gameType = 'Other';
-  if (q.get('tu') === '1') filters.hasTitleUpdate = true;
-  if (q.get('dlc') === '1') filters.hasDlc = true;
-  if (q.get('other') === '1') filters.hasOtherContent = true;
-  const sort = TITLE_SORTS.find((s) => s === q.get('sort')) ?? 'name';
-  return { filters, sort };
 }
 
 /** The header's one status, highest priority first (T1.11). */

@@ -271,6 +271,13 @@ describe('applying', () => {
     expect(names(drive)).toEqual([`${GOD}/A`]);
   });
 
+  it('marks a complete report as not stopped (ST1.14)', async () => {
+    const { store } = await ready({ [`${GOD}/A`]: header() });
+    store.toggleAdd(at('A'));
+    await store.startApply();
+    expect(store.report?.stopped).toBe(false);
+  });
+
   it('empties the queue, rescans the drive and opens the report on success (ST1.14)', async () => {
     const { store, drive } = await ready(
       { [`${GOD}/A`]: header({ displayName: 'Halo 3' }) },
@@ -300,7 +307,7 @@ describe('applying', () => {
     await running;
     expect(store.queue).toEqual([{ op: 'add', location: at('B') }]);
     expect(store.apply).toBeNull();
-    expect(store.report).toBeNull();
+    expect(store.report).toMatchObject({ stopped: true, summary: { changes: 1 } });
     expect(store.toasts.map((t) => t.text)).toContain('Stopped. Applied 1 of 2 changes.');
     expect(store.driveTitles[0]?.packages).toHaveLength(1);
     expect(names(drive)).toEqual([`${GOD}/A`]);
@@ -385,6 +392,56 @@ describe('folder status', () => {
   });
 });
 
+describe('URLs', () => {
+  it('reflects the page, the Library filters and the title in its URL (ST1.27)', async () => {
+    const { store } = await ready({ [`${GOD}/A`]: header() });
+    expect(store.url).toBe('#/discover');
+    store.setLibrary({ hasDlc: true }, 'added-desc');
+    store.navigate('library');
+    expect(store.url).toBe('#/library?dlc=1&sort=added-desc');
+    store.openTitle('4D5307E6');
+    expect(store.url).toBe('#/title/4D5307E6');
+  });
+
+  it('opens a URL: a page, the Library with its filters, or a title (ST1.28)', async () => {
+    const { store } = await ready({ [`${GOD}/A`]: header() });
+    store.openUrl('#/library?status=queued&sort=added-desc');
+    expect(store.page).toBe('library');
+    expect(store.libraryFilters).toEqual({ status: 'queued' });
+    expect(store.librarySort).toBe('added-desc');
+    store.openUrl('#/title/4D5307E6');
+    expect([store.page, store.titleId]).toEqual(['manage', '4D5307E6']);
+    store.back();
+    expect(store.page).toBe('library');
+    store.openUrl('#/nowhere');
+    expect(store.page).toBe('library');
+  });
+
+  it('opens a URL given before setup once setup is done, and only once (ST1.29)', async () => {
+    const store = await newStore();
+    store.openUrl('#/queue');
+    expect(store.page).toBe('discover');
+    await store.pick('vault', vaultOf({ [`${GOD}/A`]: header() }).handle);
+    await store.pick('drive', folder().handle);
+    await store.continue();
+    expect(store.page).toBe('queue');
+    await store.reset();
+    await store.pick('vault', vaultOf({ [`${GOD}/A`]: header() }).handle);
+    await store.pick('drive', folder().handle);
+    await store.continue();
+    expect(store.page).toBe('discover');
+  });
+
+  it('opens the URL it started with once setup is done (ST1.29)', async () => {
+    const store = new LoadoutStore({ pollMs: null, toastMs: 10 });
+    await store.start(await openSession(memoryTab(), memoryDb(), { fresh: false }), '#/library?sort=size-desc');
+    await store.pick('vault', vaultOf({ [`${GOD}/A`]: header() }).handle);
+    await store.pick('drive', folder().handle);
+    await store.continue();
+    expect([store.page, store.librarySort]).toEqual(['library', 'size-desc']);
+  });
+});
+
 describe('folder recovery and toasts', () => {
   it('rescans a folder that comes back, dropping changes that no longer apply (ST1.25)', async () => {
     const plain = folder();
@@ -413,6 +470,45 @@ describe('folder recovery and toasts', () => {
     expect(store.driveHealth).toEqual({ state: 'connected' });
     expect(store.driveTitles.map((t) => t.titleId)).toEqual(['4D5307E6']);
     expect(store.queue).toEqual([]);
+  });
+
+  it('keeps the stop toast for 15 seconds (ST1.15)', async () => {
+    const { store } = await ready({ [`${GOD}/A`]: header(), [`${GOD}/B`]: header() });
+    store.toggleAdd(at('A'));
+    store.toggleAdd(at('B'));
+    const toast = vi.spyOn(store, 'toast');
+    const running = store.startApply();
+    store.stopApply();
+    await running;
+    expect(toast).toHaveBeenCalledWith('Stopped. Applied 1 of 2 changes.', 'ok', 15_000);
+  });
+
+  it('keeps only the last 200 toasts in the log (ST1.26)', () => {
+    const store = new LoadoutStore({ pollMs: null, toastMs: 1 });
+    for (let i = 0; i < 205; i++) store.toast(`Toast ${String(i)}`);
+    expect(store.toastLog).toHaveLength(200);
+    expect(store.toastLog[0]?.text).toBe('Toast 5');
+  });
+
+  it('keeps a toast for the time asked, and logs every toast (ST1.26)', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = new LoadoutStore({ pollMs: null, toastMs: 1000 });
+      store.toast('Long one', 'info', 15_000);
+      store.toast('Short one');
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(store.toasts.map((t) => t.text)).toEqual(['Long one']);
+      await vi.advanceTimersByTimeAsync(14_000);
+      expect(store.toasts).toEqual([]);
+      expect(store.toastLog.map((t) => [t.text, t.tone])).toEqual([
+        ['Long one', 'info'],
+        ['Short one', 'ok'],
+      ]);
+      await store.reset();
+      expect(store.toastLog).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('removes a toast after a while (ST1.26)', async () => {

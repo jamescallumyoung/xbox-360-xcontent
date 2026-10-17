@@ -93,10 +93,20 @@ Conventions, shared by every module:
 - **T1.7** `applyFilters(items, filters)` combines every set filter with AND. Status `on-drive` also matches `partial`. Unset filters match everything. There is no saves filter. `hasOtherContent` matches `other` packages only.
 - **T1.8** `sortTitles(items, sort)` sorts a copy by name (case-insensitive), size in both directions, or `addedAt` in both directions. Ties fall back to name.
 - **T1.9** `describeEmpty(filters)` gives a sentence describing the filters, as in the POC.
-- **T1.10** `libraryUrl(filters, sort)` and `parseLibraryUrl(url)` round-trip every filter and sort. A "has" flag is set only by the value `1`. Unknown values are ignored.
+- **T1.10** (Moved to RT1.)
 - **T1.11** `resolveAppStatus(...)` gives one status with the priority error, vault disconnected, drive disconnected, copying, ready, OK.
 - **T1.12** `searchTitles(titles, query)` matches a case-insensitive substring of the name, or a Title ID prefix. Names that start with the query come first, then the rest by name. It returns at most 8. An empty or blank query returns none.
 - **T1.13** `coverPalette(titleId)` is deterministic, as in the POC.
+
+## RT1 `routes.ts`: hash URLs for the pages
+
+A hash works under any path, such as `/loadout/`, and on any static server, so a reload keeps the page.
+
+- **RT1.1** `routeUrl(route)` is `#/discover`, `#/queue`, `#/drive` or `#/settings` for those pages, and `#/title/<TitleID>` for a title's Manage page.
+- **RT1.2** The Library's URL is `#/library`, with its filters and sort as a query: `status`, `type` (`god` or `other`), `tu=1`, `dlc=1`, `other=1` and `sort` (left out when `name`).
+- **RT1.3** `parseRoute(url)` reads a route from the hash of a URL, or of a hash alone, and round-trips every route.
+- **RT1.4** Unknown filter values are ignored, and a "has" flag is set only by the value `1`.
+- **RT1.5** No hash, or an unknown or malformed route (such as a Title ID that isn't 8 uppercase hex digits), gives `null`.
 
 ## R1 `removal-check.ts`: may a removal be queued silently?
 
@@ -140,7 +150,7 @@ Conventions, shared by every module:
 ## RP1 `report.ts`: the apply report (from the POC)
 
 - **RP1.1** `reportChange(op, titleName, package)` records the op, the Title ID from the package's location, title name, the package's name, content type ID and name, file name, SVOD flag and bytes, and its path `0000000000000000/<TitleID>/<ContentType>/<file>`.
-- **RP1.2** `buildApplyReport(...)` has format `loadout.apply-report`, version 1, the finish time as ISO text, the duration in whole seconds (never negative), the two folder names, and counts and bytes of adds and removals, and of distinct titles.
+- **RP1.2** `buildApplyReport(...)` has format `loadout.apply-report`, version 1, `stopped` (true when the user stopped the apply part-way), the finish time as ISO text, the duration in whole seconds (never negative), the two folder names, and counts and bytes of adds and removals, and of distinct titles.
 - **RP1.3** `reportFileName(report)` is `loadout-report-YYYY-MM-DD-HHMM.json`, in local time.
 
 ## RF1 `report-files.ts`: getting the report out (from the POC)
@@ -189,8 +199,8 @@ The store is the app's single state object. It holds all state, exposes actions,
 **Applying**
 
 - **ST1.13** `startApply()` does nothing while `applyBlocked` is set, while an apply or a scan runs, or with an empty queue. `apply.order` lists the changes in the order they run (A1.1), for the queue page's rows.
-- **ST1.14** On success, the queue is emptied, the drive is rescanned (ST1.23), and `report` is set.
-- **ST1.15** `stopApply()` makes the run stop after the current change. The applied changes leave the queue; the rest stay. The drive is rescanned. No report is set; a toast says how many were applied.
+- **ST1.14** On success, the queue is emptied, the drive is rescanned (ST1.23), and `report` is set, with `stopped` false.
+- **ST1.15** `stopApply()` makes the run stop after the current change. The applied changes leave the queue; the rest stay. The drive is rescanned. `report` is set, with `stopped` true and only the applied changes, and a toast that stays for 15 seconds says how many were applied.
 - **ST1.16** On failure, the applied changes leave the queue, the rest stay, and `errors` holds the M1 sentence. The drive is rescanned, and both folders' health is checked.
 - **ST1.17** `applyBlocked` gives the reason when the vault or drive isn't connected.
 
@@ -208,4 +218,7 @@ The store is the app's single state object. It holds all state, exposes actions,
 - **ST1.23** `rescan()` scans the drive again. It does nothing while applying or scanning. If it fails, the drive's health is set from the failure, and the previous scan is kept.
 - **ST1.24** An async action (continue, reconnect, rescan, folder check) whose result arrives after a `reset()` drops it.
 - **ST1.25** When a folder check finds a folder connected again after a disconnect or error, that folder is rescanned, and queued changes that no longer apply are dropped, as in ST1.22a.
-- **ST1.26** A toast goes after the toast time.
+- **ST1.26** A toast goes after the toast time, or the time given to `toast()`. Every toast is added to `toastLog`, which keeps the last 200 and isn't cleared by a reset.
+- **ST1.27** `url` is the current page's route URL (RT1): the Library's with its filters and sort, a Manage page's with its Title ID.
+- **ST1.28** `openUrl(url)` opens a route: a page, the Library with the URL's filters and sort, or a title's Manage page. An unknown URL does nothing.
+- **ST1.29** `start(session, url)` keeps the URL the page was opened with, and `openUrl` before setup is done replaces it. Once setup or Reconnect is done, that URL is opened instead of Discover, once.

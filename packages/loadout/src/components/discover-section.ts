@@ -2,7 +2,8 @@ import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { base } from '../styles/shared.js';
 import { icon } from '../styles/icons.js';
-import { applyFilters, libraryUrl } from '../lib/titles.js';
+import { routeUrl } from '../lib/routes.js';
+import { applyFilters } from '../lib/titles.js';
 import type { LibraryTitle, TitleFilters, TitleSort } from '../lib/types.js';
 import './title-grid.js';
 
@@ -77,10 +78,12 @@ export class DiscoverSection extends LitElement {
   @property({ attribute: 'see-all-url' }) accessor seeAllOverride: string | undefined = undefined;
 
   get seeAllUrl(): string {
-    return this.seeAllOverride ?? libraryUrl(this.filters, this.sort);
+    return this.seeAllOverride ?? routeUrl({ page: 'library', filters: this.filters, sort: this.sort });
   }
 
-  private onSeeAll(e: Event): void {
+  private onSeeAll(e: MouseEvent): void {
+    // A modified click opens a new tab, as for any link.
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const ev = new CustomEvent('see-all', {
       detail: { url: this.seeAllUrl },
       bubbles: true,
@@ -100,7 +103,7 @@ export class DiscoverSection extends LitElement {
             hasAny
               ? html`<a
                   href=${this.seeAllUrl}
-                  @click=${(e: Event) => {
+                  @click=${(e: MouseEvent) => {
                     this.onSeeAll(e);
                   }}
                   >See all${icon('chev')}</a

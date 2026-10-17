@@ -10,6 +10,7 @@ import { checkPartitionRoot, type PartitionRootCheck } from '../lib/partition-ro
 import { removalRisk } from '../lib/removal-check.js';
 import { buildApplyReport, reportChange, reportFileName, type ApplyReport, type ReportChange } from '../lib/report.js';
 import { downloadReport, saveReportToDrive, type SaveFilePicker } from '../lib/report-files.js';
+import { parseRoute, routeUrl, type Route } from '../lib/routes.js';
 import { scanContentRoot } from '../lib/scan.js';
 import type { Session } from '../lib/session.js';
 import {
@@ -21,7 +22,6 @@ import {
   packageBytes,
   packageKey,
   packageRows,
-  parseLibraryUrl,
   resolveAppStatus,
 } from '../lib/titles.js';
 import type {
@@ -57,6 +57,8 @@ export interface Toast {
   id: number;
   text: string;
   tone: 'ok' | 'info' | 'bad';
+  /** When it was shown, in milliseconds since the epoch. */
+  at: number;
 }
 
 export interface ApplyState {
@@ -117,6 +119,11 @@ function describeCheck(role: Role, check: PartitionRootCheck): Pick<FolderSelect
   }
 }
 
+/** How long the toast after a stopped apply stays. */
+const STOP_TOAST_MS = 15_000;
+/** How many toasts the log keeps. */
+const TOAST_LOG_SIZE = 200;
+
 export class LoadoutStore extends EventTarget {
   phase: Phase = 'starting';
   vault: FolderSelection | null = null;
@@ -137,6 +144,8 @@ export class LoadoutStore extends EventTarget {
   apply: ApplyState | null = null;
   errors: string[] = [];
   toasts: Toast[] = [];
+  /** Every toast shown in this tab, oldest first; kept through a reset (ST1.26). */
+  toastLog: Toast[] = [];
   pendingRemoval: PendingRemoval | null = null;
   confirmingReset = false;
   /** The report of the last successful apply; set while the summary dialog is open. */
@@ -156,6 +165,8 @@ export class LoadoutStore extends EventTarget {
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly toastTimers = new Set<ReturnType<typeof setTimeout>>();
   private toastId = 0;
+  /** The URL the app was opened with, opened once setup is done (ST1.29). */
+  private startUrl = '';
 
   constructor(options: StoreOptions = {}) {
     super();
@@ -169,9 +180,13 @@ export class LoadoutStore extends EventTarget {
 
   // ---------- start-up and setup ----------
 
-  /** Restores the tab's session: Reconnect when one was saved, else welcome (ST1.21). */
-  async start(session: Session): Promise<void> {
+  /**
+   * Restores the tab's session: Reconnect when one was saved, else welcome
+   * (ST1.21). `url` is the page's URL, opened once setup is done (ST1.29).
+   */
+  async start(session: Session, url = ''): Promise<void> {
     this.session = session;
+    this.startUrl = url;
     const saved = await session.load();
     if (saved === null) {
       this.phase = 'welcome';
@@ -294,6 +309,9 @@ export class LoadoutStore extends EventTarget {
     this.scanning = false;
     if (keepQueue) this.pruneQueue();
     else this.queue = [];
+    const startUrl = this.startUrl;
+    this.startUrl = '';
+    if (startUrl !== '') this.openUrl(startUrl);
     this.save();
     this.startPolling();
     this.emit();
@@ -413,16 +431,35 @@ export class LoadoutStore extends EventTarget {
     this.navigate(this.returnTo);
   }
 
-  /** Follows a Discover Section's "See all" link (`features.md` section 3). */
-  seeAll(url: string): void {
-    if (url.startsWith('/queue')) {
-      this.navigate('queue');
+  /** The current page's URL (ST1.27). */
+  get url(): string {
+    const route: Route =
+      this.page === 'library'
+        ? { page: 'library', filters: this.libraryFilters, sort: this.librarySort }
+        : this.page === 'manage' && this.titleId !== null
+          ? { page: 'manage', titleId: this.titleId }
+          : { page: this.page === 'manage' ? 'discover' : this.page };
+    return routeUrl(route);
+  }
+
+  /** Opens a URL, such as a "See all" link; an unknown one does nothing (ST1.28). */
+  openUrl(url: string): void {
+    const route = parseRoute(url);
+    if (route === null) return;
+    if (this.phase !== 'ready') {
+      // Before setup is done, it's the page to open afterwards (ST1.29).
+      this.startUrl = url;
       return;
     }
-    const { filters, sort } = parseLibraryUrl(url);
-    this.libraryFilters = filters;
-    this.librarySort = sort;
-    this.navigate('library');
+    if (route.page === 'manage') {
+      this.openTitle(route.titleId);
+      return;
+    }
+    if (route.page === 'library') {
+      this.libraryFilters = route.filters;
+      this.librarySort = route.sort;
+    }
+    this.navigate(route.page);
   }
 
   setLibrary(filters: TitleFilters, sort: TitleSort): void {
@@ -656,10 +693,8 @@ export class LoadoutStore extends EventTarget {
       this.apply = { ...apply, failed: { change, message } };
       this.emit();
       await this.checkFolders();
-    } else if (result.stopped) {
-      this.apply = null;
-      this.toast(`Stopped. Applied ${String(result.applied.length)} of ${String(changes.length)} changes.`, 'ok');
     } else {
+      // Complete, or stopped by the user: either way, the report records what was applied (ST1.14, ST1.15).
       this.apply = null;
       this.report = buildApplyReport({
         changes: log,
@@ -667,7 +702,12 @@ export class LoadoutStore extends EventTarget {
         finishedAt,
         vaultFolderName: this.vault?.name ?? '',
         driveFolderName: this.drive?.name ?? '',
+        stopped: result.stopped,
       });
+      if (result.stopped) {
+        const applied = `${String(result.applied.length)} of ${String(changes.length)}`;
+        this.toast(`Stopped. Applied ${applied} changes.`, 'ok', STOP_TOAST_MS);
+      }
       this.reportSave = { state: 'idle' };
       this.emit();
     }
@@ -763,15 +803,17 @@ export class LoadoutStore extends EventTarget {
 
   // ---------- toasts ----------
 
-  toast(text: string, tone: Toast['tone'] = 'ok'): void {
-    const toast = { id: ++this.toastId, text, tone };
+  /** Shows a toast for `ms` (the store's toast time by default), and logs it (ST1.26). */
+  toast(text: string, tone: Toast['tone'] = 'ok', ms = this.toastMs): void {
+    const toast: Toast = { id: ++this.toastId, text, tone, at: Date.now() };
     this.toasts = [...this.toasts, toast];
+    this.toastLog = [...this.toastLog, toast].slice(-TOAST_LOG_SIZE);
     this.emit();
     const timer = setTimeout(() => {
       this.toastTimers.delete(timer);
       this.toasts = this.toasts.filter((t) => t.id !== toast.id);
       this.emit();
-    }, this.toastMs);
+    }, ms);
     this.toastTimers.add(timer);
   }
 }

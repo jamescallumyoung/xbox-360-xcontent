@@ -11,11 +11,9 @@ import {
   formatSize,
   gameType,
   libraryTitles,
-  libraryUrl,
   packageBytes,
   packageKey,
   packageRows,
-  parseLibraryUrl,
   resolveAppStatus,
   searchTitles,
   sortTitles,
@@ -260,39 +258,6 @@ describe('describeEmpty', () => {
     expect(describeEmpty({ status: 'not-on-drive', hasOtherContent: true })).toBe(
       'There are no titles with other content that are not on the drive.',
     );
-  });
-});
-
-describe('library URLs', () => {
-  it('round-trip every filter and sort (T1.10)', () => {
-    const filters = {
-      status: 'queued',
-      gameType: 'Other',
-      hasTitleUpdate: true,
-      hasDlc: true,
-      hasOtherContent: true,
-    } as const;
-    const url = libraryUrl(filters, 'added-desc');
-    expect(url).toBe('/library?status=queued&type=other&tu=1&dlc=1&other=1&sort=added-desc');
-    expect(parseLibraryUrl(url)).toEqual({ filters, sort: 'added-desc' });
-  });
-
-  it('round-trip the other statuses, types and sorts (T1.10)', () => {
-    for (const status of ['on-drive', 'not-on-drive'] as const) {
-      for (const sort of ['name', 'size-desc', 'size-asc', 'added-asc'] as const) {
-        const filters = { status, gameType: 'GOD' } as const;
-        expect(parseLibraryUrl(libraryUrl(filters, sort))).toEqual({ filters, sort });
-      }
-    }
-  });
-
-  it('give a bare URL with no filters, and ignore unknown values (T1.10)', () => {
-    expect(libraryUrl({}, 'name')).toBe('/library');
-    expect(parseLibraryUrl('/library?status=bogus&type=x&sort=nope&saves=1&tu=0&dlc=')).toEqual({
-      filters: {},
-      sort: 'name',
-    });
-    expect(parseLibraryUrl('/library?sort=toString').sort).toBe('name');
   });
 });
 

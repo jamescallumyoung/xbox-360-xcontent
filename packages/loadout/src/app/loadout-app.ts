@@ -57,14 +57,26 @@ export class LoadoutApp extends LitElement {
     if (document.visibilityState === 'visible') void store.checkFolders();
   };
 
+  /** Follows the address bar when the user edits the URL, or goes back or forward. */
+  private readonly onHashChange = (): void => {
+    if (location.hash !== store.url) store.openUrl(location.hash);
+  };
+
   override connectedCallback(): void {
     super.connectedCallback();
     document.addEventListener('visibilitychange', this.onVisible);
+    addEventListener('hashchange', this.onHashChange);
   }
 
   override disconnectedCallback(): void {
     document.removeEventListener('visibilitychange', this.onVisible);
+    removeEventListener('hashchange', this.onHashChange);
     super.disconnectedCallback();
+  }
+
+  /** Keeps the address bar showing the current page, without adding history entries. */
+  override updated(): void {
+    if (store.phase === 'ready' && location.hash !== store.url) history.replaceState(null, '', store.url);
   }
 
   private get nav(): NavItem[] {
@@ -79,7 +91,7 @@ export class LoadoutApp extends LitElement {
 
   private readonly onSeeAll = (e: CustomEvent<{ url: string }>): void => {
     e.preventDefault();
-    store.seeAll(e.detail.url);
+    store.openUrl(e.detail.url);
   };
 
   private renderPage(page: Page): TemplateResult {
@@ -191,6 +203,7 @@ export class LoadoutApp extends LitElement {
       <apply-summary
         .report=${s.report}
         .save=${s.reportSave}
+        remaining=${s.queue.length}
         @close=${() => {
           s.closeReport();
         }}

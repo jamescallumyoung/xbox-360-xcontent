@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import { base, buttons } from '../styles/shared.js';
 import { icon } from '../styles/icons.js';
 import { pageStyles } from './page-styles.js';
@@ -10,6 +10,7 @@ import '../components/drive-widget.js';
 import '../components/discover-section.js';
 import '../components/title-grid.js';
 import '../components/library-filters.js';
+import '../components/toast-history.js';
 
 /** The drive widget, as Discover and the Drive page show it. */
 function driveWidget(mode: 'mini' | 'full'): TemplateResult {
@@ -60,7 +61,7 @@ export class DiscoverPage extends LitElement {
         ? 'Applying...'
         : `Applying... ${String(Math.round(progress.fraction * 100))}%`;
     return html` ${driveWidget('mini')}
-      <discover-section heading="Your queue" see-all-url="/queue" .titles=${s.library} .filters=${QUEUED} sort="name">
+      <discover-section heading="Your queue" see-all-url="#/queue" .titles=${s.library} .filters=${QUEUED} sort="name">
         ${
           n > 0 || s.busy
             ? html`<button
@@ -213,6 +214,8 @@ export class SettingsPage extends LitElement {
     `,
   ];
 
+  @state() private accessor showHistory = false;
+
   constructor() {
     super();
     new StoreController(this);
@@ -248,7 +251,28 @@ export class SettingsPage extends LitElement {
             ${icon('refresh')}Re-select vault and drive
           </button>
         </div>
-      </section>`;
+      </section>
+      <section class="panel card">
+        <h2>Notifications</h2>
+        <p>Every notification shown in this tab, such as how many changes a stopped apply made.</p>
+        <div>
+          <button
+            class="btn"
+            @click=${() => {
+              this.showHistory = true;
+            }}
+          >
+            ${icon('info')}Show notifications (${s.toastLog.length})
+          </button>
+        </div>
+      </section>
+      <toast-history
+        ?open=${this.showHistory}
+        .items=${s.toastLog}
+        @history-close=${() => {
+          this.showHistory = false;
+        }}
+      ></toast-history>`;
   }
 }
 

@@ -45,6 +45,17 @@ export class ApplySummary extends LitElement {
         align-items: center;
         background: radial-gradient(ellipse 70% 120% at 0% 0%, rgba(34, 197, 94, 0.22), transparent 70%);
       }
+      .head.stopped {
+        background: radial-gradient(ellipse 70% 120% at 0% 0%, rgba(234, 179, 8, 0.22), transparent 70%);
+      }
+      .head.stopped .tick {
+        background: linear-gradient(135deg, #eab308, #a16207);
+        box-shadow: 0 0 0 6px rgba(234, 179, 8, 0.15);
+      }
+      .lead .warn {
+        color: var(--warn-text);
+        font-weight: 600;
+      }
       .tick {
         width: 3.2rem;
         height: 3.2rem;
@@ -287,6 +298,8 @@ export class ApplySummary extends LitElement {
 
   @property({ attribute: false }) accessor report: ApplyReport | null = null;
   @property({ attribute: false }) accessor save: ReportSaveState = { state: 'idle' };
+  /** Changes still queued: those a stopped apply didn't reach. */
+  @property({ type: Number }) accessor remaining = 0;
   @state() private accessor showJson = false;
   @query('dialog') private accessor dialog!: HTMLDialogElement;
 
@@ -328,6 +341,20 @@ export class ApplySummary extends LitElement {
     }
   }
 
+  /** The header's text; for a stopped apply, the warning that only some changes were applied. */
+  private lead(r: ApplyReport, took: string) {
+    const n = r.summary.changes;
+    const drive = html`the drive (directory name: ${r.drive.folderName})`;
+    const eject = 'Eject the drive safely before you plug it into your console.';
+    if (!r.stopped) return html`${n} change${n === 1 ? '' : 's'} to ${drive} in ${took}. ${eject}`;
+    if (n === 0) return html`<span class="warn">You stopped the queue before any change was applied.</span>`;
+    return html`<span class="warn"
+        >You stopped the queue, but some changes were applied: ${n} change${n === 1 ? '' : 's'} to ${drive} in
+        ${took}.</span
+      >
+      ${eject}`;
+  }
+
   override render(): TemplateResult {
     const r = this.report;
     if (r === null) return html`<dialog></dialog>`;
@@ -341,24 +368,23 @@ export class ApplySummary extends LitElement {
         this.fire('close');
       }}
     >
-      <div class="head">
-        <div class="tick" aria-hidden="true">${icon('check')}</div>
+      <div class="head ${r.stopped ? 'stopped' : ''}">
+        <div class="tick" aria-hidden="true">${icon(r.stopped ? 'stop' : 'check')}</div>
         <div>
-          <h2 id="as-h">All changes applied</h2>
-          <p class="lead">
-            ${r.summary.changes} change${r.summary.changes === 1 ? '' : 's'} to the drive (directory name:
-            ${r.drive.folderName}) in ${took}. Eject the drive safely before you plug it into your console.
-          </p>
+          <h2 id="as-h">${r.stopped ? 'Apply stopped' : 'All changes applied'}</h2>
+          <p class="lead">${this.lead(r, took)}</p>
         </div>
       </div>
       <div class="scroll">
         <div class="stats">
           <div class="stat">
-            <div class="v plus">+${formatSize(r.summary.added.bytes)}</div>
+            <div class="v plus">${r.summary.added.count > 0 ? '+' : ''}${formatSize(r.summary.added.bytes)}</div>
             <div class="k">${r.summary.added.count} copied</div>
           </div>
           <div class="stat">
-            <div class="v minus">&minus;${formatSize(r.summary.removed.bytes)}</div>
+            <div class="v minus">
+              ${r.summary.removed.count > 0 ? html`&minus;` : nothing}${formatSize(r.summary.removed.bytes)}
+            </div>
             <div class="k">${r.summary.removed.count} removed</div>
           </div>
           <div class="stat">
@@ -417,7 +443,13 @@ export class ApplySummary extends LitElement {
         </section>
       </div>
       <footer>
-        <span class="note">The queue is now empty.</span>
+        <span class="note"
+          >${
+            this.remaining === 0
+              ? 'The queue is now empty.'
+              : `${String(this.remaining)} change${this.remaining === 1 ? ' is' : 's are'} still in the queue.`
+          }</span
+        >
         <button
           class="btn primary"
           @click=${() => {

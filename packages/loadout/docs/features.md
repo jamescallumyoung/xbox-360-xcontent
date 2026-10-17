@@ -68,6 +68,7 @@ Path: `<partition root>/<partition>/<TitleID>/<ContentType>/<package header>`, p
   - Search and the status indicator.
   - Search results appear in a dropdown under the search box. Clicking one opens that title's Manage page.
   - Search covers **vault titles only**.
+- **URLs.** Each page has a hash URL, such as `#/library?dlc=1&sort=added-desc` or `#/title/4D5307E6`, kept in the address bar as you move around, without adding history entries. Editing the URL opens that page. After a reload, the page in the URL opens once Reconnect is done.
 
 ## 3. Discover page
 
@@ -82,7 +83,7 @@ Path: `<partition root>/<partition>/<TitleID>/<ContentType>/<package header>`, p
   - type
   - has title updates, has DLC, has other content
   - five sorts: alphabetical, size (both directions), date added (both directions)
-- Uses the same query parameters as the "See all" links.
+- Its URL carries its filters and sort, the same as the "See all" links.
 - Shows **vault titles only**.
 - The **"Has saves" filter is removed** in this version (Q24, decided 2026-10-17): saves live in profile partitions, which Loadout doesn't manage, so it could never match.
 
@@ -139,16 +140,18 @@ Git-like: one card per title, with its changes listed underneath.
   - Shows progress for each row and overall, and a **Stop** button that stops after the current change.
   - On the **first error, everything stops.** The error is shown in place and on the header indicator, and changes that weren't applied stay in the queue.
 - When everything has applied, the queue empties, the drive is rescanned and the **Apply summary** dialog opens (§7a).
-- When you stop an apply part-way, a short notice says how many changes were applied. There's no dialog.
+- When you stop an apply part-way, the **Apply summary** dialog opens too, marked as stopped, listing only the changes that were applied. A notice says how many were applied, and stays for 15 seconds.
 - When an apply fails, the error banner shows. There's no dialog.
 
 **Recovering from a failed add.** When a copy fails part-way, Loadout removes what it wrote, if the drive is still there. If it isn't, the leftover (an empty header file, or a `.data/` folder without its header) shows after the next scan as a **corrupt** package on the drive. A corrupt drive copy doesn't count as on the drive, and the package can't be added while it's there. The user removes it (the warning shows, since it's corrupt) and applies, then adds the package again. The failed add stays in the queue meanwhile; applying it before the leftover is removed fails with "already on the drive".
 
 ## 7a. Apply summary dialog
 
+**When stopped.** If you stop an apply part-way, the dialog is headed "Apply stopped", and its header warns that you stopped the queue but some changes were applied (or none, if none were). The footer says how many are still in the queue. The report records it (`stopped: true`).
+
 **Shows**
 
-- "All changes applied", with the change count, the drive's name, how long it took, and a reminder to eject the drive safely.
+- When complete, "All changes applied", with the change count, the drive's name, how long it took, and a reminder to eject the drive safely.
 - Three figures: size copied (and count), size removed (and count), and number of titles.
 - Every change grouped by title, with git-style `+` and `-` lines and sizes.
 - **Done** closes it. Escape closes it too.
@@ -187,7 +190,7 @@ Git-like: one card per title, with its changes listed underneath.
 
 ## 9. Settings and reset
 
-- Settings has one action: **Re-select vault and drive**.
+- Settings has **Re-select vault and drive**, and **Show notifications**, which lists every notification shown in this tab, newest first. The list isn't cleared by a reset, but a reload or a new tab starts it afresh.
 - It opens a confirmation dialog with a prominent warning that the queue will be cleared.
 - Confirming clears all app state and the stored session, and shows the welcome modal.
 - The sidebar's **x** on the vault or drive opens the same dialog.

@@ -160,7 +160,7 @@ A heading, a **See all ›** link on the right, and a single-row Title Grid with
 
 **See all**
 
-- Links to the Library with the same filters and sort as query parameters (`libraryUrl()`), for example `/library?status=queued&type=god&dlc=1&sort=added-desc`. `parseLibraryUrl()` reverses it.
+- Links to the Library with the same filters and sort in its hash URL (`routeUrl()`, `lib-design.md` RT1), for example `#/library?status=queued&type=god&dlc=1&sort=added-desc`. `parseRoute()` reverses it.
 - Fires `see-all` with `{ url }`. It bubbles, composes and is cancelable.
 - Hidden when the section is empty. The grid then shows its empty message.
 
@@ -258,11 +258,11 @@ An inline banner with tones `ok`, `warn`, `bad` and `info`, an optional `busy` s
 
 ## Toast Stack - `<toast-stack>` _(added)_
 
-Short notices, bottom-right, that expire after about 4 seconds. On phones they sit above the tab bar.
+Short notices, bottom-right, that expire after about 4 seconds. On phones they sit above the tab bar. The stack is a manual popover, so toasts show above modal dialogs. The toast after a stopped apply stays 15 seconds.
 
 ## Apply Summary - `<apply-summary>` _(added; feature §7a)_
 
-The "All changes applied" modal shown when an apply completes.
+The modal shown when an apply completes, or when the user stops it part-way (`report.stopped`). A stopped one is headed "Apply stopped", with a warning that only the changes listed were applied, and how many are still queued (`remaining`).
 
 - Stats, then changes grouped by title.
 - **Keep a record:**
@@ -276,6 +276,16 @@ The "All changes applied" modal shown when an apply completes.
 - `close`
 - `download`
 - `save-to-drive`
+
+## Toast History - `<toast-history>` _(added)_
+
+A modal listing every notification shown in this tab, newest first, each with its time. Opened from Settings.
+
+Inputs: `open`, `items` (the store's `toastLog`).
+
+**Events**
+
+- `history-close`: Close, Escape or a click on the backdrop.
 
 ## Pages _(added)_
 

@@ -3,4 +3,4 @@ import './app/loadout-app.js';
 import { startSession } from './app/start-session.js';
 import { store } from './app/store-controller.js';
 
-void startSession().then((session) => store.start(session));
+void startSession().then((session) => store.start(session, location.hash));
