@@ -1,0 +1,13 @@
+{
+  // Type-checks the app's code together with its tests and the build and Vitest
+  // configs. Tests run in Node, so this adds Node's types to the browser's.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["src", "vitest.config.ts", "build.mjs"],
+  // Replaces tsconfig.json's exclude, which leaves the tests out.
+  "exclude": []
+}

@@ -1,0 +1,33 @@
+{
+  "name": "loadout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Copy Xbox 360 titles from a read-only vault to a console's drive, in the browser.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --dev",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.12.0",
+    "prettier": "^3.9.10",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
+  }
+}
