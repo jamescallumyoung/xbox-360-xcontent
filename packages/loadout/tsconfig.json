@@ -1,0 +1,33 @@
+{
+  // The app's code, type-checked only: esbuild bundles it (build.mjs). Tests are
+  // type-checked by tsconfig.test.json.
+  "compilerOptions": {
+    // Runtime: ECMAScript 2024 plus the browser's own types, as in the
+    // xcontent-* packages. Lit's decorators are standard TC39 decorators, so no
+    // decorator flags are set.
+    "target": "es2024",
+    "lib": ["es2024", "dom"],
+    "types": [],
+    "module": "nodenext",
+    "noEmit": true,
+
+    // Strictness, on top of the default "strict" (the same as xcontent-fs-web)
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": false
+  },
+  "include": ["src"],
+  "exclude": ["src/**/__tests__"]
+}
