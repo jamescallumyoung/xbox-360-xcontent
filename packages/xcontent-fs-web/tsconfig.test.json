@@ -1,0 +1,18 @@
+{
+  // Type-checks the library code together with its tests and the Vitest config.
+  // Tests run in Node, against an in-memory file system, so this config adds
+  // Node's types on top of the browser's.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "declarationDir": null,
+    "declarationMap": false,
+    "isolatedDeclarations": false
+  },
+  "include": ["src", "vitest.config.ts"],
+  // Replaces tsconfig.json's exclude, which leaves the tests out.
+  "exclude": []
+}
