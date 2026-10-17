@@ -11,16 +11,16 @@ Status: **v4, the first real version.** v3 described the clickable proof of conc
 
 ## Domain model
 
-| Term | Meaning |
-|---|---|
-| **Title** | A game, app or other bundle of Xbox 360 content, identified by a **Title ID**. |
-| **Package** | One XContent package inside a title: a header file, plus a `<name>.data/` folder for SVOD packages. Each package has exactly one Content Type, and several packages may share one. |
-| **Content Type** | One of a known, finite list, each with a numeric ID. Packages live in a folder named for the ID as 8 hex digits (`00007000`). |
-| **Partition** | A 16-hex-digit folder directly under a partition root: `0000000000000000` (public) or a profile ID. |
-| **Partition root** | A folder that contains **only** partitions. Usually named `Content`, but that isn't required. |
-| **Vault** | A read-only partition root holding backups. |
-| **Drive** | A writable partition root on the external drive. |
-| **Change** | One queued action on one package: **add** (vault to drive) or **remove** (from the drive). |
+| Term               | Meaning                                                                                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Title**          | A game, app or other bundle of Xbox 360 content, identified by a **Title ID**.                                                                                                     |
+| **Package**        | One XContent package inside a title: a header file, plus a `<name>.data/` folder for SVOD packages. Each package has exactly one Content Type, and several packages may share one. |
+| **Content Type**   | One of a known, finite list, each with a numeric ID. Packages live in a folder named for the ID as 8 hex digits (`00007000`).                                                      |
+| **Partition**      | A 16-hex-digit folder directly under a partition root: `0000000000000000` (public) or a profile ID.                                                                                |
+| **Partition root** | A folder that contains **only** partitions. Usually named `Content`, but that isn't required.                                                                                      |
+| **Vault**          | A read-only partition root holding backups.                                                                                                                                        |
+| **Drive**          | A writable partition root on the external drive.                                                                                                                                   |
+| **Change**         | One queued action on one package: **add** (vault to drive) or **remove** (from the drive).                                                                                         |
 
 Path: `<partition root>/<partition>/<TitleID>/<ContentType>/<package header>`, plus `<package header>.data/` for SVOD.
 
@@ -42,14 +42,15 @@ Path: `<partition root>/<partition>/<TitleID>/<ContentType>/<package header>`, p
 
 **Persistence.**
 
-| Event | Result |
-|---|---|
-| Normal reload (Cmd+R, F5, the reload button) | State restored. The welcome modal shows **Reconnect**, one click, because the browser must re-grant folder access. |
-| **Hard refresh** (Cmd+Shift+R, Ctrl+Shift+R, Shift-click reload, DevTools "Empty cache and hard reload") | Fresh start, the same as a first visit. |
-| Closing the tab | Fresh start. |
-| Reset in Settings, or the sidebar **x** | Fresh start. |
+| Event                                                                                                    | Result                                                                                                             |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Normal reload (Cmd+R, F5, the reload button)                                                             | State restored. The welcome modal shows **Reconnect**, one click, because the browser must re-grant folder access. |
+| **Hard refresh** (Cmd+Shift+R, Ctrl+Shift+R, Shift-click reload, DevTools "Empty cache and hard reload") | Fresh start, the same as a first visit.                                                                            |
+| Closing the tab                                                                                          | Fresh start.                                                                                                       |
+| Reset in Settings, or the sidebar **x**                                                                  | Fresh start.                                                                                                       |
 
 **How**
+
 - The queue and the folder handles are stored in **IndexedDB**, as one record. A marker in `sessionStorage` tells a reload (marker present) from a new tab (no marker), so a new tab deletes the record and starts fresh. A duplicated tab copies the marker and shares the record; two tabs on one drive isn't supported.
 - **Detecting a hard refresh.** A minimal **service worker** does nothing except claim its clients: `skipWaiting()` on install, `clients.claim()` on activate, and no fetch handler. Browsers bypass service workers on a force refresh, so afterwards `navigator.serviceWorker.controller` is `null`. On start-up, an **active** registration with an **uncontrolled** page means a hard refresh, and the session is cleared.
 - **Backup:** a `keydown` listener for Cmd/Ctrl + Shift + R sets a "fresh start" flag in `sessionStorage` just before the reload, for the rare case where the service worker hasn't activated yet.
@@ -95,6 +96,7 @@ Path: `<partition root>/<partition>/<TitleID>/<ContentType>/<package header>`, p
 Clicking any Game Tile opens it, and so does a search result.
 
 **Shows**
+
 - Art: the header thumbnail as a crisp icon on generated art.
 - Name, publisher and **Title ID**.
 - The title's packages, grouped:
@@ -113,6 +115,7 @@ Clicking any Game Tile opens it, and so does a search result.
 **Queue adds.** Select any package that's in the vault, isn't corrupt there, and has nothing at its location on the drive.
 
 **Queue removals.** Select any package that's on the drive.
+
 - A **blocking warning modal** opens unless the same package is in the vault **and** the two headers have the same **content ID**.
 - The modal says the content isn't in the vault, or differs from the vault copy, so removing it can't be undone.
 - You must click through to queue the removal.
@@ -124,6 +127,7 @@ Clicking any Game Tile opens it, and so does a search result.
 ## 7. Queue page: grouped list
 
 Git-like: one card per title, with its changes listed underneath.
+
 - **`+` rows** (green) for adds and **`-` rows** (red) for removals. Each shows the package name, its Content Type and its size.
 - Each row has an undo control that takes it out of the queue.
 - A sticky summary bar at the bottom shows:
@@ -143,12 +147,14 @@ Git-like: one card per title, with its changes listed underneath.
 ## 7a. Apply summary dialog
 
 **Shows**
+
 - "All changes applied", with the change count, the drive's name, how long it took, and a reminder to eject the drive safely.
 - Three figures: size copied (and count), size removed (and count), and number of titles.
 - Every change grouped by title, with git-style `+` and `-` lines and sizes.
 - **Done** closes it. Escape closes it too.
 
 **Keep a record: the JSON report** (`lib/report.ts`, format `loadout.apply-report`, version 1)
+
 - The file is named `loadout-report-YYYY-MM-DD-HHMM.json`, in local time.
 - Contents: when it was applied and how long it took, the vault and drive **folder names**, a summary of counts and bytes, and every change in the order applied, with its path inside the partition root.
 - **Download JSON** saves to the downloads folder.
@@ -159,11 +165,11 @@ Git-like: one card per title, with its changes listed underneath.
 
 ## 7b. Vault and drive status
 
-| State | When | Shown |
-|---|---|---|
-| **Connected** | Permission granted and the folder can be read | Green dot |
-| **Disconnected** | Reading the folder gives `NotFoundError`, typically because the drive was unplugged | Amber pulsing dot, plus "Plug the drive back in." |
-| **Error** | Any other failure: permission withdrawn, unreadable media, `InvalidStateError`, and so on | Red dot, plus a plain-language message |
+| State            | When                                                                                      | Shown                                             |
+| ---------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **Connected**    | Permission granted and the folder can be read                                             | Green dot                                         |
+| **Disconnected** | Reading the folder gives `NotFoundError`, typically because the drive was unplugged       | Amber pulsing dot, plus "Plug the drive back in." |
+| **Error**        | Any other failure: permission withdrawn, unreadable media, `InvalidStateError`, and so on | Red dot, plus a plain-language message            |
 
 - **Checking:** the store re-checks both folders every 5 seconds and whenever the tab becomes visible again, using `checkFolder` in `lib/folder-health.ts`, which is built on `openContentRoot`. It's paused while applying.
 - **Reconnect after a reload** asks for permission on both folders in one click. If a folder isn't granted, is missing, or is no longer a partition root, the Reconnect screen says which, and the user clicks again or starts over.
@@ -204,23 +210,23 @@ Git-like: one card per title, with its changes listed underneath.
 
 ## 11. Component changes from the POC
 
-| Component | Change |
-|---|---|
-| Library Filters | No "Has saves" chip. |
-| Manage page | No hash check, no Match and Mismatch capsules, no Replace from vault. |
-| Folder Picker | Calls `showDirectoryPicker` and checks `isSameEntry`; no sample-folder menu. |
-| Apply Summary | Calls the real save dialog; no sample-location list. |
-| Settings | No demo panel. |
+| Component       | Change                                                                       |
+| --------------- | ---------------------------------------------------------------------------- |
+| Library Filters | No "Has saves" chip.                                                         |
+| Manage page     | No hash check, no Match and Mismatch capsules, no Replace from vault.        |
+| Folder Picker   | Calls `showDirectoryPicker` and checks `isSameEntry`; no sample-folder menu. |
+| Apply Summary   | Calls the real save dialog; no sample-location list.                         |
+| Settings        | No demo panel.                                                               |
 
 ## 12. What does the file and header work
 
-| # | Need | Where |
-|---|---|---|
-| X1 | Copy SVOD `.data/` folders | `xcontent-fs-web` `copyTo` |
-| X2 | Scan a tree into titles and packages | Loadout `lib/scan.ts` |
-| X3 | Copy and remove one package | `xcontent-fs-web` `copyTo`, `clean`, `deletePackage` |
-| X4 | Compare packages by fast hash | **Deferred.** The removal check uses content IDs instead (§6). |
-| X5 | Check a folder is a partition root | Loadout `lib/partition-root.ts` |
-| X6 | Parse the content ID | `xcontent-header` `parseHeader` |
-| - | Read and parse headers | `xcontent-header` `parseHeader`, on bytes the scan reads from the header files it finds (one read per package, rather than a second walk through `readHeaderBytes`) |
-| - | Folder status | Loadout `lib/folder-health.ts`, on `xcontent-fs-web` `openContentRoot` |
+| #   | Need                                 | Where                                                                                                                                                               |
+| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| X1  | Copy SVOD `.data/` folders           | `xcontent-fs-web` `copyTo`                                                                                                                                          |
+| X2  | Scan a tree into titles and packages | Loadout `lib/scan.ts`                                                                                                                                               |
+| X3  | Copy and remove one package          | `xcontent-fs-web` `copyTo`, `clean`, `deletePackage`                                                                                                                |
+| X4  | Compare packages by fast hash        | **Deferred.** The removal check uses content IDs instead (§6).                                                                                                      |
+| X5  | Check a folder is a partition root   | Loadout `lib/partition-root.ts`                                                                                                                                     |
+| X6  | Parse the content ID                 | `xcontent-header` `parseHeader`                                                                                                                                     |
+| -   | Read and parse headers               | `xcontent-header` `parseHeader`, on bytes the scan reads from the header files it finds (one read per package, rather than a second walk through `readHeaderBytes`) |
+| -   | Folder status                        | Loadout `lib/folder-health.ts`, on `xcontent-fs-web` `openContentRoot`                                                                                              |
