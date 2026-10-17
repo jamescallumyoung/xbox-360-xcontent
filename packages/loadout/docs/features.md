@@ -46,12 +46,12 @@ Path: `<partition root>/<partition>/<TitleID>/<ContentType>/<package header>`, p
 | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Normal reload (Cmd+R, F5, the reload button)                                                             | State restored. The welcome modal shows **Reconnect**, one click, because the browser must re-grant folder access. |
 | **Hard refresh** (Cmd+Shift+R, Ctrl+Shift+R, Shift-click reload, DevTools "Empty cache and hard reload") | Fresh start, the same as a first visit.                                                                            |
-| Closing the tab                                                                                          | Fresh start.                                                                                                       |
+| Opening Loadout in a new tab                                                                             | Fresh start. Other tabs keep their own state.                                                                      |
 | Reset in Settings, or the sidebar **x**                                                                  | Fresh start.                                                                                                       |
 
 **How**
 
-- The queue and the folder handles are stored in **IndexedDB**, as one record. A marker in `sessionStorage` tells a reload (marker present) from a new tab (no marker), so a new tab deletes the record and starts fresh. A duplicated tab copies the marker and shares the record; two tabs on one drive isn't supported.
+- The queue and the folder handles are stored in **IndexedDB**, one record per tab. A tab ID in `sessionStorage` tells a reload (ID present) from a new tab (no ID). Reopening a closed tab, or restoring tabs after a browser restart, brings its state back too, because the browser restores its `sessionStorage`. Records not saved for 7 days are deleted. If IndexedDB can't be used, as in some private windows, Loadout still works, but nothing survives a reload.
 - **Detecting a hard refresh.** A minimal **service worker** does nothing except claim its clients: `skipWaiting()` on install, `clients.claim()` on activate, and no fetch handler. Browsers bypass service workers on a force refresh, so afterwards `navigator.serviceWorker.controller` is `null`. On start-up, an **active** registration with an **uncontrolled** page means a hard refresh, and the session is cleared.
 - **Backup:** a `keydown` listener for Cmd/Ctrl + Shift + R sets a "fresh start" flag in `sessionStorage` just before the reload, for the rare case where the service worker hasn't activated yet.
 - **Not used:** the Navigation Timing `type`, which reports `reload` for both kinds of refresh.

@@ -152,14 +152,15 @@ Conventions, shared by every module:
 
 ## SE1 `session.ts`: surviving a reload
 
-The session holds the vault and drive handles and the queue, in one record. Storage is injected: `tab` is `sessionStorage`-like, and `db` is a small async key-value store (IndexedDB in the app). The record lives under one fixed key, so nothing is left behind when a tab closes. A tab marker in `tab` tells a reload from a new tab.
+The session holds the vault and drive handles and the queue. Storage is injected: `tab` is `sessionStorage`-like, and `db` is a small async key-value store (IndexedDB in the app). Each tab has an ID in `sessionStorage`, and its own record, `session:<ID>`, holding the state and the time it was saved.
 
-- **SE1.1** `isHardRefresh({ registered, controlled, flaggedAt, now })` is true when a service worker registration is active but the page isn't controlled, or when the Cmd/Ctrl+Shift+R flag was set less than 5 seconds ago. An older flag is ignored, so a cancelled reload doesn't wipe a later one.
-- **SE1.2** `openSession(tab, db, { fresh })` deletes the stored record when `fresh` is set or the tab has no marker (a new tab), then sets the marker and clears the flag.
-- **SE1.3** `load()` returns the saved vault, drive and queue, or `null`.
-- **SE1.4** `save(state)` stores them.
-- **SE1.5** `clear()` deletes them.
-- **SE1.6** A duplicated tab shares the record with the tab it came from. That's accepted: two tabs writing one drive isn't supported.
+- **SE1.1** `isHardRefresh({ registered, controlled, flaggedAt, now })` is true when a service worker registration is active but the page isn't controlled, or when the Cmd/Ctrl+Shift+R flag was set less than 5 seconds ago, and not in the future. An older flag is ignored, so a cancelled reload doesn't wipe a later one.
+- **SE1.2** `openSession(tab, db, { fresh })` keeps the tab's ID on a reload. A new tab, which has no ID, gets a new one and starts with nothing saved. It always clears the hard-refresh flag.
+- **SE1.3** With `fresh` (a hard refresh), it deletes the tab's record and gives the tab a new ID.
+- **SE1.4** `load()` returns the saved vault, drive and queue, or `null`, including when the record isn't a valid session.
+- **SE1.5** `save(state)` stores them, with the time; `clear()` deletes them.
+- **SE1.6** Other tabs' records are left alone, except those not saved for 7 days, which are deleted. A duplicated tab copies `sessionStorage`, so it shares its original's record; that's accepted. Reopening a closed tab (Cmd+Shift+T) or restoring tabs after a browser restart brings back its `sessionStorage`, and so its state.
+- **SE1.7** No session method rejects. A storage failure, such as IndexedDB being unavailable in a private window, is logged, and only means nothing survives a reload.
 
 ## ST1 `app/store.ts`: the store
 
