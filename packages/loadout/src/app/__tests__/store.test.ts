@@ -75,6 +75,15 @@ describe('setup', () => {
     expect(store.vault?.handle).toBe(good.handle);
   });
 
+  it('clears one side, so a refused pick cannot leave a valid folder behind (ST1.1a)', async () => {
+    const store = await newStore();
+    await store.pick('vault', vaultOf({ [`${GOD}/G`]: header() }).handle);
+    await store.pick('drive', folder().handle);
+    store.clearSelection('vault');
+    expect(store.vault).toBeNull();
+    expect(store.canContinue).toBe(false);
+  });
+
   it('allows continuing only when both folders are valid (ST1.3)', async () => {
     const store = await newStore();
     expect(store.canContinue).toBe(false);

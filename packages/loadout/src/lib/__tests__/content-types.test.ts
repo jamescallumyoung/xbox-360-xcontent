@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { contentTypeName, packageKind } from '../content-types.js';
 
 describe('contentTypeName', () => {
-  it('names every content type in spec §4.2 (CT1.1)', () => {
+  it('names every content type in spec section 4.2 (CT1.1)', () => {
     expect(contentTypeName('00000001')).toBe('SavedGame');
     expect(contentTypeName('00007000')).toBe('GameOnDemand');
     expect(contentTypeName('000B0000')).toBe('Installer');

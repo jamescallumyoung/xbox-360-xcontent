@@ -10,21 +10,20 @@ The user defined five components (Drive Widget, Title Grid, Game Tile, Discover 
 
 ---
 
-## Header — `<app-header>`
+## Header - `<app-header>`
 
 A sticky top bar with search and one status indicator. The logo and app name stay in the sidebar.
 
-| Input          | Type                                | Notes                                     |
-| -------------- | ----------------------------------- | ----------------------------------------- |
-| `query`        | string                              | Search text                               |
-| `titles`       | `Title[]`                           | What search covers: **vault titles only** |
-| `error-count`  | number                              | Apply errors plus folder errors           |
-| `vault-ready`  | boolean                             | False when the vault is **disconnected**  |
-| `drive-ready`  | boolean                             | False when the drive is **disconnected**  |
-| `copying`      | `{ done, total, fraction } \| null` | Property only                             |
-| `queued-count` | number                              | Titles with queued changes                |
+| Input          | Type                    | Notes                                          |
+| -------------- | ----------------------- | ---------------------------------------------- |
+| `query`        | string                  | Search text                                    |
+| `titles`       | `Title[]`               | What search covers: **vault titles only**      |
+| `status`       | `AppStatus`             | The store's one status (`lib-design.md` T1.11) |
+| `error-count`  | number                  | Apply errors plus folder errors                |
+| `progress`     | `ApplyProgress \| null` | Property only; shown while copying             |
+| `queued-count` | number                  | Titles with queued changes                     |
 
-**Search.** Results show in a dropdown under the box, which is normally hidden. It lists up to 8 matches by name or Title ID (thumbnail, name, publisher, ID), with names that start with the query ranked first. The arrow keys, Enter and Escape work. Choosing a result opens that title's Manage page.
+**Search.** Results show in a dropdown under the box, which is normally hidden. It lists up to 8 matches (`searchTitles`, T1.12), each with its thumbnail, name, publisher and Title ID. The arrow keys, Enter and Escape work. Choosing a result opens that title's Manage page.
 
 **Status indicator.** Exactly one state shows. Highest priority wins:
 
@@ -44,20 +43,19 @@ These were "No vault/drive selected" in v1. Before setup the welcome modal cover
 
 ---
 
-## Drive Widget — `<drive-widget>`
+## Drive Widget - `<drive-widget>`
 
 One widget, used on Discover (`mini`) and the Drive page (`full`).
 
-| Input          | Type           | Notes                                                     |
-| -------------- | -------------- | --------------------------------------------------------- |
-| `drive`        | `DriveInfo`    | `{ directoryName }`                                       |
-| `health`       | `FolderHealth` | `{ state: connected \| disconnected \| error, message? }` |
-| `entries`      | `DriveEntry[]` | Title folders on the drive                                |
-| `used-bytes`   | number         | Size of titles on the drive                               |
-| `queued-bytes` | number         | Size of queued adds                                       |
-| `remove-bytes` | number         | Size of queued removals                                   |
-| `mode`         | `mini \| full` | `mini` hides the file tree                                |
-| `scanning`     | boolean        | Spinner in place of the status icon. Disables Rescan      |
+| Input          | Type           | Notes                                                                         |
+| -------------- | -------------- | ----------------------------------------------------------------------------- |
+| `name`         | string         | The drive folder's own name                                                   |
+| `summary`      | `DriveSummary` | Playable and other title counts, total bytes, and one entry per title (T1.6e) |
+| `health`       | `FolderHealth` | `{ state: connected \| disconnected \| error, message }`                      |
+| `queued-bytes` | number         | Size of queued adds                                                           |
+| `remove-bytes` | number         | Size of queued removals                                                       |
+| `mode`         | `mini \| full` | `mini` hides the file tree                                                    |
+| `scanning`     | boolean        | Spinner in place of the status icon. Disables Rescan                          |
 
 **Layout** (design "A", chosen by the user)
 
@@ -66,7 +64,7 @@ One widget, used on Discover (`mini`) and the Drive page (`full`).
 - **Directory row:** "Directory name: <name>" (`FileSystemHandle.name`), kept tight against the name row as the user asked.
 - **Problem line** (disconnected or error only): a message. Rescan is disabled.
 - **Usage bar:** a _proportion_ bar of titles vs queued adds, with legend sizes, plus "To remove −X" on the right when removals are queued. The browser can't read capacity or free space, so neither is shown.
-- **File tree** (full mode only): rooted at the directory name, `<name>/<partition>/<TitleID>   <title name>`.
+- **File tree** (full mode only): rooted at the directory name, `<name>/0000000000000000/<TitleID>   <title name>`, for the public partition only.
 - **Background:** a gradient with generous padding, the "flare" from the original Discover strip.
 
 **Events**
@@ -75,7 +73,7 @@ One widget, used on Discover (`mini`) and the Drive page (`full`).
 
 ---
 
-## Game Tile — `<game-tile>`
+## Game Tile - `<game-tile>`
 
 | Input  | Type                                           |
 | ------ | ---------------------------------------------- |
@@ -97,7 +95,7 @@ One widget, used on Discover (`mini`) and the Drive page (`full`).
 
 ---
 
-## Title Cover — `<title-cover>` _(added)_
+## Title Cover - `<title-cover>` _(added)_
 
 2:3 cover art, in this order of preference:
 
@@ -111,7 +109,7 @@ Inputs: `name`, `publisher`, `title-id`, `cover-url`, `thumbnail`.
 
 ---
 
-## Title Grid — `<title-grid>`
+## Title Grid - `<title-grid>`
 
 A grid of Game Tiles. It has **no filter or sort controls**; the parent owns those.
 
@@ -145,7 +143,7 @@ Release-date sorts are **removed for now**, and will be re-added once there's a 
 
 ---
 
-## Discover Section — `<discover-section>`
+## Discover Section - `<discover-section>`
 
 A heading, a **See all ›** link on the right, and a single-row Title Grid with preset filters and sort. There are no filter controls.
 
@@ -170,7 +168,7 @@ The Publishers sections from the first draft are dropped.
 
 ---
 
-## Side Nav — `<side-nav>` _(added; desktop only)_
+## Side Nav - `<side-nav>` _(added; desktop only)_
 
 - The logo and "Loadout".
 - The pages: Discover, Library, Queue (with the queued-titles badge), Drive, Settings.
@@ -185,7 +183,7 @@ Inputs: `items: NavItem[]`, `current`, `vault: FolderHealth | null`, `drive: Fol
 - `navigate`, with `{ id }`
 - `deselect`, with `{ which }`
 
-## Tab Bar — `<tab-bar>` _(added; mobile only)_
+## Tab Bar - `<tab-bar>` _(added; mobile only)_
 
 The same five pages with the queue badge. It doesn't show vault or drive status, which the user accepted.
 
@@ -193,7 +191,7 @@ The same five pages with the queue badge. It doesn't show vault or drive status,
 
 - `navigate`, with `{ id }`
 
-## Welcome Modal — `<welcome-modal>` _(added)_
+## Welcome Modal - `<welcome-modal>` _(added)_
 
 A near-full-page modal that can't be dismissed.
 
@@ -215,7 +213,7 @@ A near-full-page modal that can't be dismissed.
 - `reconnect`
 - `start-over`
 
-## Folder Picker — `<folder-picker>` _(added)_
+## Folder Picker - `<folder-picker>` _(added)_
 
 One card per folder.
 
@@ -229,10 +227,11 @@ The button calls `showDirectoryPicker` with the folder's mode. If the user picks
 **Events**
 
 - `pick`, with `{ handle }`. This is the parent's to translate.
+- `refuse`, when the folder picked is the other side's: the parent clears this side.
 
-Inputs: `role` (`vault` or `drive`), `selection` (the store's view of this side), `other` (the other side's handle, for the same-folder check).
+Inputs: `kind` (`vault` or `drive`), `selection` (the store's view of this side), `other` (the other side's handle, for the same-folder check).
 
-## Library Filters — `<library-filters>` _(added)_
+## Library Filters - `<library-filters>` _(added)_
 
 Chips for status, type and the three "has" flags, a Clear filters link, and a sort select. Together they expose every Title Grid option.
 
@@ -240,7 +239,7 @@ Chips for status, type and the three "has" flags, a Clear filters link, and a so
 
 - `filters-change`, with `{ filters, sort }`
 
-## Confirm Dialog — `<confirm-dialog>` _(added)_
+## Confirm Dialog - `<confirm-dialog>` _(added)_
 
 A native `<dialog>` modal.
 
@@ -253,15 +252,15 @@ A native `<dialog>` modal.
 - `confirm`
 - `cancel`
 
-## Notice Banner — `<notice-banner>` _(added)_
+## Notice Banner - `<notice-banner>` _(added)_
 
 An inline banner with tones `ok`, `warn`, `bad` and `info`, an optional `busy` spinner, and a slot `actions`. It's used for corrupt packages, the "N changes queued" notice and apply errors.
 
-## Toast Stack — `<toast-stack>` _(added)_
+## Toast Stack - `<toast-stack>` _(added)_
 
 Short notices, bottom-right, that expire after about 4 seconds. On phones they sit above the tab bar.
 
-## Apply Summary — `<apply-summary>` _(added; feature §7a)_
+## Apply Summary - `<apply-summary>` _(added; feature §7a)_
 
 The "All changes applied" modal shown when an apply completes.
 

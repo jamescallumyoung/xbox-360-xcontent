@@ -63,6 +63,8 @@ export interface ApplyState {
   startedAt: Date;
   /** The changes being applied, in the order they run (A1.1): what the queue page's rows follow. */
   order: Change[];
+  /** Each change's package, by change key, kept from before the apply: a removed one leaves the next scan. */
+  packages: ReadonlyMap<string, Package>;
   progress: ApplyProgress | null;
   stopping: boolean;
   /** Set when the apply ended with a failure, until the error is dismissed. */
@@ -211,6 +213,14 @@ export class LoadoutStore extends EventTarget {
     else this.drive = selection;
   }
 
+  /** Clears one side of setup, as when the folder picked can't be used. */
+  clearSelection(role: Role): void {
+    if (this.scanning) return;
+    this.picks[role]++;
+    this.setSelection(role, null);
+    this.emit();
+  }
+
   get canContinue(): boolean {
     return this.vault?.status === 'valid' && this.drive?.status === 'valid';
   }
@@ -342,6 +352,11 @@ export class LoadoutStore extends EventTarget {
     return this.applying;
   }
 
+  /** True while an apply runs (not after it has failed). */
+  get busy(): boolean {
+    return this.applying;
+  }
+
   private startPolling(): void {
     this.stopPolling();
     if (this.pollMs !== null) this.timer = setInterval(() => void this.checkFolders(), this.pollMs);
@@ -398,7 +413,7 @@ export class LoadoutStore extends EventTarget {
     this.navigate(this.returnTo);
   }
 
-  /** Follows a Discover Section's "See all" link (`features.md` §3). */
+  /** Follows a Discover Section's "See all" link (`features.md` section 3). */
   seeAll(url: string): void {
     if (url.startsWith('/queue')) {
       this.navigate('queue');
@@ -601,7 +616,9 @@ export class LoadoutStore extends EventTarget {
     );
     this.applying = true;
     this.errors = [];
-    this.apply = { startedAt, order: applyOrder(changes), progress: null, stopping: false };
+    const packages = new Map<string, Package>();
+    for (const [key, entry] of known) if (entry.pkg !== undefined) packages.set(key, entry.pkg);
+    this.apply = { startedAt, order: applyOrder(changes), packages, progress: null, stopping: false };
     this.page = 'queue';
     this.emit();
 

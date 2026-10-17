@@ -1,8 +1,8 @@
 // A test-only builder for package headers that `parseHeader` accepts, using the
-// offsets in docs/xcontent-specification.md §6, never the library's own.
+// offsets in docs/xcontent-specification.md section 6, never the library's own.
 
 export interface HeaderOptions {
-  /** Default `LIVE`. `CON ` builds a 0x971A header, the others 0xAD0E (§6.1). */
+  /** Default `LIVE`. `CON ` builds a 0x971A header, the others 0xAD0E (section 6.1). */
   magic?: 'CON ' | 'LIVE' | 'PIRS';
   /** Default 0x00007000. */
   contentType?: number;
@@ -20,7 +20,7 @@ export interface HeaderOptions {
   contentId?: string;
   thumbnail?: Uint8Array;
   titleThumbnail?: Uint8Array;
-  /** Default 0x971A for `CON `, 0xAD0E otherwise; real headers don't always follow that (§6.1). */
+  /** Default 0x971A for `CON `, 0xAD0E otherwise; real headers don't always follow that (section 6.1). */
   headerSize?: 0x971a | 0xad0e;
   /** The stored metadata version: 0 (version 1) or 2. Default 2. */
   metadataVersion?: 0 | 2;

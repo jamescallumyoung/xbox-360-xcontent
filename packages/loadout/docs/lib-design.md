@@ -81,7 +81,7 @@ Conventions, shared by every module:
 - **T1.0** `packageKey(location)` is `<TitleID>/<ContentType>/<packageName>`, and `changeKey(change)` is `<op>|<packageKey>`.
 - **T1.1** `packageBytes(p)` is `headerFileBytes + dataFilesBytes`.
 - **T1.2** `titleBytes(t)` is the sum of its packages' bytes.
-- **T1.3** `formatSize(bytes)` gives `n MB` (at least 1) below 1 GB, and `n.n GB` from there, with no decimal from 100 GB. The unit and the decimal are chosen after rounding, so a size just under 1 GB shows `1.0 GB`, not `1024 MB`. As in the POC, 1 MB is 2^20 bytes and 1 GB is 2^30.
+- **T1.3** `formatSize(bytes)` gives `0 MB` for nothing, `n MB` (at least 1) below 1 GB, and `n.n GB` from there, with no decimal from 100 GB. The unit and the decimal are chosen after rounding, so a size just under 1 GB shows `1.0 GB`, not `1024 MB`. As in the POC, 1 MB is 2^20 bytes and 1 GB is 2^30.
 - **T1.4** `titleFlags(t)` says whether a title has a `game`, `title-update`, `dlc` or `other` package. `save` packages count for none of them.
 - **T1.5** `gameType(t)` is `GOD` when the title has a `00007000` package, and `Other` otherwise.
 - **T1.6** A vault package **is on the drive** when the drive has a package with the same key that isn't corrupt. A corrupt drive copy doesn't count: it's a broken copy to remove.
@@ -170,6 +170,7 @@ The store is the app's single state object. It holds all state, exposes actions,
 **Setup**
 
 - **ST1.1** `pick(role, handle)` sets that side to `checking`, then checks it with P1 (`allowEmpty` for the drive only), and sets `valid` or `invalid` with a message.
+- **ST1.1a** `clearSelection(role)` empties one side, as when the picker refuses the other side's folder (`isSameEntry`), so the previous folder can't be continued with.
 - **ST1.2** A result for a pick that has since been replaced is ignored.
 - **ST1.3** `canContinue` is true only when both sides are valid.
 - **ST1.4** `continue()`, from the welcome screen, opens both roots (`read` for the vault, `readwrite` for the drive), scans both, saves the session and shows Discover. While it runs, `scanning` is set, and another `continue()` or a `pick()` does nothing.

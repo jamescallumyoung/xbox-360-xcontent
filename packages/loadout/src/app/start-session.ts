@@ -1,6 +1,6 @@
 // Opens the tab's session at start-up: detects a hard refresh, registers the
 // service worker that makes that detection work, and watches for the keyboard
-// shortcut (docs/features.md, §1). Browser glue, checked by hand. Call it once.
+// shortcut (docs/features.md, section 1). Browser glue, checked by hand. Call it once.
 
 import { FLAG_KEY, isHardRefresh, openSession, readFlag, type Session } from '../lib/session.js';
 import { idbStore } from './idb.js';

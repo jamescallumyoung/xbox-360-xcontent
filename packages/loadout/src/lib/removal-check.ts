@@ -12,9 +12,9 @@ import type { Package, RemovalRisk } from './types.js';
  * - `none`: the content IDs match, so the vault can restore it (R1.4).
  *
  * This is a weaker stand-in for the planned fast-hash compare (X4, R1.5). The
- * content ID is a SHA-1 of the header (spec §6.3): equal IDs show the headers
+ * content ID is a SHA-1 of the header (spec section 6.3): equal IDs show the headers
  * match, which for an STFS package should mean the same contents, but for an SVOD
- * package says nothing about its data files beyond the first hash table (spec §7.5).
+ * package says nothing about its data files beyond the first hash table (spec section 7.5).
  */
 export function removalRisk(vaultPackage: Package | undefined, drivePackage: Package): RemovalRisk {
   if (vaultPackage === undefined) return 'not-in-vault';

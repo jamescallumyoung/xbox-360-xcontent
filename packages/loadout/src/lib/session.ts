@@ -1,4 +1,4 @@
-// Surviving a reload (docs/lib-design.md, SE1; docs/features.md, §1).
+// Surviving a reload (docs/lib-design.md, SE1; docs/features.md, section 1).
 
 import type { Change } from './types.js';
 

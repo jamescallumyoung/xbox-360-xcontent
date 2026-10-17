@@ -1,4 +1,4 @@
-// The apply report (docs/lib-design.md, RP1; docs/features.md, §7a).
+// The apply report (docs/lib-design.md, RP1; docs/features.md, section 7a).
 
 import { contentTypeName } from './content-types.js';
 import { packageBytes } from './titles.js';

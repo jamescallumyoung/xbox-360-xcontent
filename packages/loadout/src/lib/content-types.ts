@@ -2,7 +2,7 @@
 
 import type { PackageKind } from './types.js';
 
-/** Every content type in spec §4.2, by its 8-hex-digit ID. */
+/** Every content type in spec section 4.2, by its 8-hex-digit ID. */
 const NAMES: Readonly<Record<string, string>> = {
   '00000001': 'SavedGame',
   '00000002': 'MarketplaceContent',
@@ -43,7 +43,7 @@ const NAMES: Readonly<Record<string, string>> = {
 /** Content types that hold a playable game or app (CT1.3). */
 const GAMES = new Set(['00007000', '00004000', '000D0000', '00005000', '00080000', '02000000', '00001000']);
 
-/** The name spec §4.2 gives a content type, or `Unknown (<ID>)` (CT1.1, CT1.2). */
+/** The name spec section 4.2 gives a content type, or `Unknown (<ID>)` (CT1.1, CT1.2). */
 export function contentTypeName(id: string): string {
   return NAMES[id] ?? `Unknown (${id})`;
 }

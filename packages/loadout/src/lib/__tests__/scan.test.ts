@@ -46,7 +46,7 @@ describe('walking', () => {
     expect(titles.flatMap((t) => t.packages.map((p) => p.location.packageName))).toEqual(['GAME']);
   });
 
-  it('passes over files that are not packages (S1.3, spec §7.2)', async () => {
+  it('passes over files that are not packages (S1.3, spec section 7.2)', async () => {
     const titles = await scan({ [`${GOD}/GAME`]: h(), [`${GOD}/Thumbs.db`]: 'not a package at all' });
     expect(titles.flatMap((t) => t.packages.map((p) => p.location.packageName))).toEqual(['GAME']);
   });
@@ -154,7 +154,7 @@ describe('reading each package', () => {
   });
 
   it('passes over a download in progress, and its .data directory (S1.11)', async () => {
-    // As on real drives (spec §4.4): CON, metadata version 1, and a 0xAD0E header.
+    // As on real drives (spec section 4.4): CON, metadata version 1, and a 0xAD0E header.
     const placeholder = h({
       magic: 'CON ',
       titleId: 'FFFE07D1',

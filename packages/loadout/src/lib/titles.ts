@@ -43,6 +43,7 @@ export function titleBytes(t: Title): number {
 
 /** `n MB` below 1 GB, `n.n GB` from there, with no decimal from 100 GB, judged after rounding (T1.3). */
 export function formatSize(bytes: number): string {
+  if (bytes === 0) return '0 MB';
   const mb = Math.max(1, Math.round(bytes / MB));
   if (mb < 1024) return `${String(mb)} MB`;
   const gb = Math.round((bytes / GB) * 10) / 10;

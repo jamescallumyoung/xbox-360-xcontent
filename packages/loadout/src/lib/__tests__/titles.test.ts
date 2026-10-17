@@ -50,7 +50,7 @@ describe('sizes', () => {
   });
 
   it('format as MB below 1 GB, and GB from there (T1.3)', () => {
-    expect(formatSize(0)).toBe('1 MB');
+    expect(formatSize(0)).toBe('0 MB');
     expect(formatSize(10)).toBe('1 MB');
     expect(formatSize(300 * MB)).toBe('300 MB');
     expect(formatSize(1023 * MB)).toBe('1023 MB');
