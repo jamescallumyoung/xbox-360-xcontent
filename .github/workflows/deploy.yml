@@ -30,10 +30,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build app
-        run: pnpm --filter app build
-
-      # Loadout is served beside the old app, at /loadout/.
       - name: Build Loadout
         # `loadout...` builds Loadout's workspace dependencies first, then Loadout.
         run: pnpm --filter loadout... build
@@ -41,12 +37,9 @@ jobs:
       - name: Check Loadout
         run: pnpm --filter loadout typecheck && pnpm --filter loadout test
 
-      - name: Add Loadout to the site
-        run: rm -rf packages/app/dist/loadout && cp -R packages/loadout/dist packages/app/dist/loadout
-
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: packages/app/dist
+          path: packages/loadout/dist
 
   deploy:
     needs: build

@@ -2,7 +2,7 @@
 
 This document describes what the Xbox 360 stores, where it stores it, and in what format. It replaces `xbox360-content-format.md` and `xbox360-content-partitions.md`. What those documents got wrong is listed in [xcontent-specification-corrections.md](xcontent-specification-corrections.md).
 
-It is written for the developers and AI agents working on `xcontent`, `xcontent-web` and the apps built on them.
+It is written for the developers and AI agents working on `xcontent-header`, `xcontent-fs-web` and the apps built on them, such as Loadout.
 
 > **Status: complete.** All sections are written and reviewed. Some questions are still open. They are marked ❓ or 🔶 where they arise, and listed in the research record ([xcontent-specification-research.md](xcontent-specification-research.md)).
 
@@ -262,8 +262,6 @@ This section lists every content type, then describes each kind of content in tu
 ### 4.1 Content type names
 
 ⚠️ **Content type names aren't consistent across the community.** Microsoft's own names aren't public, so each tool picks its own. The names in §4.2 follow the majority of four sources: xenia, Velocity, Free60 and rom-properties (§8). Other names in use are listed alongside. The IDs are consistent across all sources. ✅
-
-This repo's code (`ContentTypeName` in `xcontent`) still uses Velocity's names, which differ in places. Where they do, the code's name is under "Other names".
 
 ### 4.2 Full list of content types
 
@@ -868,7 +866,7 @@ To read a package's basic identity:
 
 ## 7. Rules for tools in this repo
 
-These rules say how a tool should read, copy, compare and remove packages. They are written for `xcontent`, `xcontent-web` and the apps built on them, but apply to any tool that works with a `Content/` directory. Each rule points to the sections that explain why.
+These rules say how a tool should read, copy, compare and remove packages. They are written for `xcontent-header`, `xcontent-fs-web` and the apps built on them, but apply to any tool that works with a `Content/` directory. Each rule points to the sections that explain why.
 
 ### 7.1 Walking a `Content/` directory
 
@@ -995,7 +993,7 @@ These are cited by file name below, without repeating their links.
 | **ConsoleMods** | https://consolemods.org/wiki/ | Modding wiki. It blocked direct reading, so its pages were mostly seen in snippets. |
 | **X1 research** | [x1-research-findings.md](../session_context/loadout/docs/x1-research-findings.md) | The full list of sources for the SVOD layout and Aurora's ripping methods |
 | **Real drives** | [xcontent-specification-research.md](xcontent-specification-research.md) | Primary research on real `Content/` trees (§8.3). The research record holds the method, the evidence and the open questions. |
-| **This repo's fixtures** | `packages/xcontent/src/parse-header/__tests__/fixtures/` | Real package headers: two GOD headers (`god-dead-island-riptide`, `god-south-park-tsot`) and two DLC packages (`dlc-halo-reach-anniversary`, `dlc-halo-wars`) |
+| **This repo's fixtures** | `packages/xcontent-header/src/__tests__/fixtures/` | The first `0xB000` bytes of real packages: LIVE, PIRS and CON headers, both STFS and SVOD, among them GOD headers (`live-svod-god-dead-island-riptide`, `live-svod-god-south-park-mojibake`) and DLC (`live-stfs-dlc-halo-wars`) |
 
 ### 8.3 Primary research
 

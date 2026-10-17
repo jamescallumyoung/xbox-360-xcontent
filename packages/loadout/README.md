@@ -64,7 +64,7 @@ pnpm build         # dist/, ready to serve from any path
 
 - **Layout:** `src/lib/` holds the logic, tested first; `src/app/store.ts` is the app's single state object, also tested; `src/components/` and `src/pages/` are Lit views over the store. See `docs/lib-design.md`.
 - **Restart `pnpm dev`** after changing `index.html`, `public/` or `tokens.css`: only the code is rebuilt on change.
-- **Deployment:** the repo's Pages workflow builds Loadout and serves it at `/loadout/`, beside the deprecated app in `packages/app`.
+- **Deployment:** the repo's Pages workflow builds Loadout and serves it at https://loadout.jych.io.
 - **Manual testing:** `docs/manual-test-checklist.md` lists what to check by hand in Chrome, on real drives.
 
 ## Use of AI
