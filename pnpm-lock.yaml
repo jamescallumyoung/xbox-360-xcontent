@@ -193,6 +193,9 @@ importers:
       xcontent-fs-web:
         specifier: workspace:*
         version: link:../xcontent-fs-web
+      xcontent-header:
+        specifier: workspace:*
+        version: link:../xcontent-header
     devDependencies:
       '@types/node':
         specifier: ^22.20.5
@@ -206,6 +209,9 @@ importers:
       eslint:
         specifier: ^10.12.0
         version: 10.12.0
+      memfs:
+        specifier: ^4.80.0
+        version: 4.80.0
       prettier:
         specifier: ^3.9.10
         version: 3.9.10

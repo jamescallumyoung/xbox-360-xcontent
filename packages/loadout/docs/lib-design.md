@@ -47,7 +47,7 @@ Conventions, shared by every module:
 
 - **S1.1** It reads only the public partition. Other entries in the root are not read. A root without the public partition gives no titles.
 - **S1.2** Title ID and content type directories must be named with 8 **uppercase** hex digits (`xcontent-fs-web` locations reject lowercase). Any other entry at those levels is passed over.
-- **S1.3** In a content type directory, each file is a package's header, except hidden files (names starting with `.`, such as `._<name>` and `.DS_Store`) and Chromium swap files (names ending in `.crswap`), which are passed over.
+- **S1.3** In a content type directory, each file is a package's header, except hidden files (names starting with `.`, such as `._<name>` and `.DS_Store`) and Chromium swap files (names ending in `.crswap`), which are passed over. A file whose magic isn't `CON `, `LIVE` or `PIRS` isn't a package (spec §7.2), such as `Thumbs.db`, and is passed over too.
 - **S1.4** A directory named `<name>.data` belongs to the package `<name>`, and isn't listed on its own. Any other directory is passed over (such as `BACKUP/`, spec §4.8).
 - **S1.5** The Title ID and content type of a package come from its directories, not its header (spec §7.2).
 
@@ -56,7 +56,7 @@ Conventions, shared by every module:
 - **S1.6** For each header file it calls `getFile()` once, records the file's `size` as `headerFileBytes` and its `lastModified`, and parses the first `0xB000` bytes with `xcontent-header`'s `parseHeader`. (It reads the file it has already found, rather than walking again through `readHeaderBytes`.)
 - **S1.7** From the parsed header it records `contentId`, `format` (`stfs`, `svod` or `unknown`), and, for SVOD, `dataFilesBytes` from the header's combined data size. For STFS, `dataFilesBytes` is 0.
 - **S1.8** A package's `name` is its English display name, else the header's title name, else its file name.
-- **S1.9** **Corrupt (lightweight).** A package whose header fails `parseHeader`, or can't be read for any reason but those in S1.19, is kept, marked `corrupt`, with `contentId` `null`, `format` `unknown` and `dataFilesBytes` 0. Its name is its file name.
+- **S1.9** **Corrupt (lightweight).** A package whose header fails `parseHeader` for any reason but a wrong magic (such as an empty or truncated file) is kept, marked `corrupt`, with `contentId` `null`, `format` `unknown` and `dataFilesBytes` 0. Its name is its file name.
 - **S1.10** A `<name>.data` directory without a header file `<name>` is kept as a package `<name>`, marked `corrupt`, with `headerFileBytes` 0 and `lastModified` 0. This lists the leftovers of an interrupted copy so they can be removed.
 - **S1.11** **A download in progress** (spec §4.4, §7.2) is passed over, along with its `.data` directory: a `CON` package whose header says Title ID `FFFE07D1` and content type `000B0000`, in any other directory than `FFFE07D1/000B0000/`.
 
@@ -67,12 +67,13 @@ Conventions, shared by every module:
 - **S1.14** A title's `publisher` is a `game` package header's publisher name, else any package header's, else `null`.
 - **S1.15** A title's `thumbnail` is the bytes of a `game` package's title thumbnail, else its thumbnail, else any package's title thumbnail or thumbnail, else `null`.
 - **S1.16** A title's `addedAt` is the newest `lastModified` among its packages.
-- **S1.17** Titles are sorted by Title ID, and each title's packages by content type, then name.
+- **S1.17** Titles are sorted by Title ID, and each title's packages by content type, then file name.
 
 **Progress, abort and failure**
 
 - **S1.18** `onProgress` is called after each package, with the number of packages read so far.
-- **S1.19** When the browser throws while listing a directory, or throws `NotFoundError` or `InvalidStateError` while reading a header (the drive was pulled), the scan stops and returns `[false, health]`, with the health of F1.5.
+- **S1.19** Any browser error, while listing a directory or reading a header, stops the scan, which returns `[false, health]` with the health of F1.5. A read error never marks a package corrupt: a good copy must never look broken because the drive was busy or pulled.
+- **S1.20** A `.data` directory pairs with its header only when the names match exactly. Other spellings are left for the fuller corrupt check (`features.md` §10).
 
 ## T1 `titles.ts`: library views (from the POC)
 
