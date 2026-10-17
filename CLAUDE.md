@@ -36,16 +36,4 @@ A web app that copies Xbox 360 packages from a read-only vault `Content/` folder
 - `src/app/store.ts` is the store: the app's single state object, which holds all state, exposes actions and emits `change`. It has no Lit import, so it's tested in Node.
 - `src/components/` and `src/pages/` are views over the store. They must not import `xcontent-fs-web` or `xcontent-header` (enforced by ESLint).
 
-Work follows TDD for `src/lib/` and the store, tested in Node with Vitest against memfs. Build the workspace packages first (`pnpm --filter loadout^... build`). Code is formatted with Prettier (`printWidth` 120, single quotes, semicolons). Run `pnpm format` in `packages/loadout` before finishing; `pnpm lint` and `pnpm format:check` are part of the checks. Loadout is deployed to GitHub Pages at `/loadout/`, beside the old app.
-
-### `xcontent` package (deprecated)
-
-The `xcontent` package uses **Vertical Slice Architecture**. Each vertical is self-contained and has no dependencies on other verticals. `index.ts` is the only place that composes across verticals.
-
-Within the **parse-header** vertical, we use **pure function decomposition by field group** — each field or group of related fields is parsed by its own pure function with the signature `(bytes: Uint8Array) => T`. This keeps each parser independently testable with synthetic binary fixtures.
-
-### `xcontent-web` package (deprecated)
-
-The `xcontent-web` package also uses **Vertical Slice Architecture** with the same rules: each vertical is self-contained, no cross-vertical imports, `index.ts` is the only composition point.
-
-`xcontent-web` wraps `xcontent` with Web API–specific functionality (e.g. `FileSystemDirectoryHandle`). It is the layer that connects the portable binary logic in `xcontent` to the browser environment. `xcontent` must never depend on `xcontent-web`.
+Work follows TDD for `src/lib/` and the store is tested in Node with Vitest against memfs. Build the workspace packages first (`pnpm --filter loadout^... build`). Code is formatted with Prettier (`printWidth` 120, single quotes, semicolons). Run `pnpm format` in `packages/loadout` before finishing; `pnpm lint` and `pnpm format:check` are part of the checks. Loadout is deployed to GitHub Pages, at https://loadout.jych.io.

@@ -1,9 +1,0 @@
-{
-  "name": "Xbox 360 Content Utils",
-  "short_name": "X360 Utils",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0d0d0d",
-  "theme_color": "#107c10",
-  "icons": []
-}

@@ -70,5 +70,5 @@ What the automated tests can't cover: the browser's folder and save dialogs, per
 
 ## 6. Deployed site
 
-- [ ] After merging to `main`, `/loadout/` loads, and the old app at `/` still works.
-- [ ] A reload of `/loadout/` shows Reconnect; a hard refresh starts afresh.
+- [ ] After merging to `main`, https://loadout.jych.io loads over HTTPS.
+- [ ] A reload of https://loadout.jych.io shows Reconnect; a hard refresh starts afresh.

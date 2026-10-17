@@ -16,9 +16,7 @@ export async function startSession(): Promise<Session> {
   // Read before any await, so a worker claiming the page meanwhile can't change it.
   const workers = 'serviceWorker' in navigator ? navigator.serviceWorker : undefined;
   const controlled = workers?.controller != null;
-  // The registration covering this page. Before Loadout's own worker is installed
-  // that may be the old app's, at the site root: either works for the check, since
-  // both control their pages on a normal load and neither on a hard refresh.
+  // The registration covering this page: Loadout's own worker, once installed.
   const registration = await workers?.getRegistration('./').catch(() => undefined);
   const fresh = isHardRefresh({
     registered: registration?.active != null,
@@ -26,7 +24,7 @@ export async function startSession(): Promise<Session> {
     flaggedAt: readFlag(tab),
     now: Date.now(),
   });
-  // Relative, so its scope is Loadout's own folder (such as /loadout/ on Pages).
+  // Relative, so its scope is the folder Loadout is served from.
   workers?.register('./sw.js').catch((error: unknown) => {
     console.warn('Loadout could not register its service worker.', error);
   });
