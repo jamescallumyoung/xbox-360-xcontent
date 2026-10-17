@@ -76,13 +76,14 @@ Conventions, shared by every module:
 
 ## T1 `titles.ts`: library views (from the POC)
 
+- **T1.0** `packageKey(location)` is `<TitleID>/<ContentType>/<packageName>`, and `changeKey(change)` is `<op>|<packageKey>`.
 - **T1.1** `packageBytes(p)` is `headerFileBytes + dataFilesBytes`.
 - **T1.2** `titleBytes(t)` is the sum of its packages' bytes.
-- **T1.3** `formatSize(bytes)` gives `n MB` (at least 1) below 1 GB, and `n.n GB` from there, with no decimal from 100 GB. As in the POC, 1 MB is 2^20 bytes and 1 GB is 2^30.
+- **T1.3** `formatSize(bytes)` gives `n MB` (at least 1) below 1 GB, and `n.n GB` from there, with no decimal from 100 GB. The unit and the decimal are chosen after rounding, so a size just under 1 GB shows `1.0 GB`, not `1024 MB`. As in the POC, 1 MB is 2^20 bytes and 1 GB is 2^30.
 - **T1.4** `titleFlags(t)` says whether a title has a `game`, `title-update`, `dlc` or `other` package. `save` packages count for none of them.
 - **T1.5** `gameType(t)` is `GOD` when the title has a `00007000` package, and `Other` otherwise.
 - **T1.6** A vault package **is on the drive** when the drive has a package with the same key that isn't corrupt. A corrupt drive copy doesn't count: it's a broken copy to remove.
-- **T1.6a** `titleStatus(vaultTitle, driveTitle, queued)` is `queued` when the title has queued changes, else `on-drive` when every one of its vault packages is on the drive, `partial` when some are, and `not-on-drive` when none are.
+- **T1.6a** `titleStatus(vaultTitle, driveTitle, queued)` is `queued` when the title has queued changes, else `on-drive` when every one of its vault packages is on the drive, `partial` when some are, and `not-on-drive` when none are. Saves don't count: Loadout never copies them.
 - **T1.6b** `packageRows(vaultTitle, driveTitle)` lists every package of the title in either place, once per key, with `vault` and `drive` (each the package or `undefined`), sorted by kind (game, title update, DLC, other), then name. `save` packages are left out.
 - **T1.6c** `canAdd(row)` is true when the vault has the package, it isn't corrupt, and the drive has nothing at its key, corrupt or not. `canRemove(row)` is true when the drive has it.
 - **T1.6d** `libraryTitles(vault, drive, queue)` gives each vault title with its status, and `corrupt` when any of its vault packages is.
@@ -90,7 +91,7 @@ Conventions, shared by every module:
 - **T1.7** `applyFilters(items, filters)` combines every set filter with AND. Status `on-drive` also matches `partial`. Unset filters match everything. There is no saves filter. `hasOtherContent` matches `other` packages only.
 - **T1.8** `sortTitles(items, sort)` sorts a copy by name (case-insensitive), size in both directions, or `addedAt` in both directions. Ties fall back to name.
 - **T1.9** `describeEmpty(filters)` gives a sentence describing the filters, as in the POC.
-- **T1.10** `libraryUrl(filters, sort)` and `parseLibraryUrl(url)` round-trip every filter and sort. Unknown values are ignored.
+- **T1.10** `libraryUrl(filters, sort)` and `parseLibraryUrl(url)` round-trip every filter and sort. A "has" flag is set only by the value `1`. Unknown values are ignored.
 - **T1.11** `resolveAppStatus(...)` gives one status with the priority error, vault disconnected, drive disconnected, copying, ready, OK.
 - **T1.12** `searchTitles(titles, query)` matches a case-insensitive substring of the name, or a Title ID prefix. Names that start with the query come first, then the rest by name. It returns at most 8. An empty or blank query returns none.
 - **T1.13** `coverPalette(titleId)` is deterministic, as in the POC.
@@ -100,7 +101,7 @@ Conventions, shared by every module:
 `removalRisk(vaultPackage, drivePackage)` compares the vault's package at the same location (or `undefined`) with the drive's.
 
 - **R1.1** No vault package gives `not-in-vault`.
-- **R1.2** Either package corrupt gives `mismatch`.
+- **R1.2** Either package corrupt, or a missing content ID, gives `mismatch`.
 - **R1.3** Different content IDs give `mismatch`.
 - **R1.4** Otherwise it gives `none`, and the removal is queued without a warning.
 - **R1.5** This is a **weaker stand-in for the fast-hash check (X4)**. Equal content IDs show the headers match, but not the SVOD data files (spec §7.5). The code's documentation says so.
@@ -116,7 +117,7 @@ Conventions, shared by every module:
 - **M1.4a** `wrong-case`: a folder on that root has the same name in different letter case, giving the name found.
 - **M1.4b** `junk`: the package has leftover files Loadout can't remove.
 - **M1.5** `name-too-long`: the package's name is too long for the browser to write.
-- **M1.6** `io-error` with any other error name gives the root and the browser's message. Any other reason gives a generic sentence naming its `kind`.
+- **M1.6** `io-error` with any other error name gives the root and the browser's message, or the error's name when the message is empty. Any other reason gives a generic sentence naming its `kind`.
 - **M1.7** Only the first reason is described.
 
 ## A1 `apply.ts`: running the queue
@@ -135,7 +136,7 @@ Conventions, shared by every module:
 
 ## RP1 `report.ts`: the apply report (from the POC)
 
-- **RP1.1** `reportChange(op, titleId, titleName, package)` records the op, Title ID, title name, the package's name, content type ID and name, file name, SVOD flag and bytes, and its path `0000000000000000/<TitleID>/<ContentType>/<file>`.
+- **RP1.1** `reportChange(op, titleName, package)` records the op, the Title ID from the package's location, title name, the package's name, content type ID and name, file name, SVOD flag and bytes, and its path `0000000000000000/<TitleID>/<ContentType>/<file>`.
 - **RP1.2** `buildApplyReport(...)` has format `loadout.apply-report`, version 1, the finish time as ISO text, the duration in whole seconds (never negative), the two folder names, and counts and bytes of adds and removals, and of distinct titles.
 - **RP1.3** `reportFileName(report)` is `loadout-report-YYYY-MM-DD-HHMM.json`, in local time.
 

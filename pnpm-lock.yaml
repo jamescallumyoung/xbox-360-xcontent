@@ -190,6 +190,9 @@ importers:
       lit:
         specifier: ^3.3.3
         version: 3.3.3
+      xcontent-fs-web:
+        specifier: workspace:*
+        version: link:../xcontent-fs-web
     devDependencies:
       '@types/node':
         specifier: ^22.20.5

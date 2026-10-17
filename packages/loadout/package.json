@@ -18,7 +18,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "lit": "^3.3.3"
+    "lit": "^3.3.3",
+    "xcontent-fs-web": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
