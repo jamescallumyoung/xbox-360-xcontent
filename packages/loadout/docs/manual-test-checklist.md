@@ -21,7 +21,12 @@ What the automated tests can't cover: the browser's folder and save dialogs, per
 ## 2. Browsing
 
 - [x] Discover's "Recently added" shows vault titles, newest first. Thumbnails appear.
-- [-] Library filters and sorts work, and "See all" links open the Library with the same filters.
+- [ ] Library filters and sorts work, and "See all" links open the Library with the same filters.
+- [ ] "See all" from "Recently added": the address bar shows `#/library?sort=added-desc`, and the sort dropdown reads "Date added: newest first".
+- [ ] Moving between pages, opening a title and changing Library filters each update the address bar (`#/discover`, `#/title/<TitleID>`, `#/library?...`).
+- [ ] Back and Forward step through those pages and filter changes, staying in Loadout.
+- [ ] Editing the hash in the address bar opens that page, such as `#/queue`.
+- [ ] Cmd+click on "See all" opens the Library in a new tab (which starts at the welcome screen, then opens the Library after setup).
 - [x] Search finds titles by name and by Title ID; Enter opens the first.
 - [x] A title without a name in its headers shows `UNKNOWN`.
 - [x] Phone width (Chrome's device toolbar): the tab bar replaces the sidebar, and nothing scrolls sideways.
@@ -38,7 +43,10 @@ What the automated tests can't cover: the browser's folder and save dialogs, per
 - [ ] On FAT32, no `._` AppleDouble files are left beside the copy.
 - [x] The summary dialog opens; Download JSON saves the report; the JSON preview shows; Escape and Done close it.
 - [x] Save to drive... refuses anywhere inside the drive's `Content` folder, subfolders too ("Loadout can't save inside the drive's partition folder"), and leaves no empty file there; saving at the drive's top level works.
-- [-] Stop, with several changes queued, stops after the current change; the toast says "Stopped. Applied X of N changes."; the rest stay queued.
+- [ ] Stop, with several changes queued, stops after the current change; the rest stay queued.
+- [ ] After Stop, the summary dialog opens headed "Apply stopped". Its header warns "You stopped the queue, but some changes were applied", it lists only the applied changes, and its footer says how many are still queued.
+- [ ] After Stop, the toast "Stopped. Applied X of N changes." shows above the dialog and stays about 15 seconds.
+- [ ] Settings' "Show notifications" lists past notifications, newest first, with their times; Escape and Close shut it.
 
 ## 4. Failures
 
@@ -55,8 +63,9 @@ What the automated tests can't cover: the browser's folder and save dialogs, per
 - [ ] A reload with the drive unplugged: Reconnect says which folder can't be used.
 - [x] Reopening a closed tab (Cmd+Shift+T) brings its state back.
 - [x] A hard refresh (Cmd+Shift+R), and DevTools' "Empty cache and hard reload", start afresh at the welcome screen. Try one on the very first visit too.
-- [-] A private window still works, though nothing survives a reload.
+- [x] A private window behaves like a normal tab: a reload restores the session. (Chrome's private windows keep IndexedDB until the window closes.)
 - [x] A new tab starts afresh, and the first tab keeps its queue.
+- [ ] A reload on a Library URL with filters returns to that Library view after Reconnect.
 - [x] Settings' "Re-select vault and drive", and the sidebar's hover x, clear everything after the warning.
 
 ## 6. Deployed site

@@ -68,7 +68,7 @@ Path: `<partition root>/<partition>/<TitleID>/<ContentType>/<package header>`, p
   - Search and the status indicator.
   - Search results appear in a dropdown under the search box. Clicking one opens that title's Manage page.
   - Search covers **vault titles only**.
-- **URLs.** Each page has a hash URL, such as `#/library?dlc=1&sort=added-desc` or `#/title/4D5307E6`, kept in the address bar as you move around, without adding history entries. Editing the URL opens that page. After a reload, the page in the URL opens once Reconnect is done.
+- **URLs.** Each page has a hash URL, such as `#/library?dlc=1&sort=added-desc` or `#/title/4D5307E6`, kept in the address bar as you move around. Each page change, title opened and Library filter change adds a history entry, so Back and Forward move through them without leaving Loadout. Editing the URL opens that page. After a reload, the page in the URL opens once Reconnect is done.
 
 ## 3. Discover page
 

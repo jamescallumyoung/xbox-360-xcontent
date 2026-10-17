@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { base } from '../styles/shared.js';
+import { parseRoute } from '../lib/routes.js';
 import type { NavItem } from '../components/nav-item.js';
 import type { Page, Role } from './store.js';
 import { store, StoreController } from './store-controller.js';
@@ -57,9 +58,14 @@ export class LoadoutApp extends LitElement {
     if (document.visibilityState === 'visible') void store.checkFolders();
   };
 
-  /** Follows the address bar when the user edits the URL, or goes back or forward. */
+  /** True while the app follows a URL the user went to, so it isn't added to history again. */
+  private following = false;
+
+  /** Follows the address bar when the user goes back or forward, or edits the URL. */
   private readonly onHashChange = (): void => {
-    if (location.hash !== store.url) store.openUrl(location.hash);
+    if (location.hash === store.url) return;
+    this.following = true;
+    store.openUrl(location.hash);
   };
 
   override connectedCallback(): void {
@@ -74,9 +80,19 @@ export class LoadoutApp extends LitElement {
     super.disconnectedCallback();
   }
 
-  /** Keeps the address bar showing the current page, without adding history entries. */
+  /**
+   * Keeps the address bar showing the current page. A change made in the app adds a
+   * history entry, so Back and Forward move through pages and Library filters. A URL
+   * the user went to, and the first one, are only tidied in place.
+   */
   override updated(): void {
-    if (store.phase === 'ready' && location.hash !== store.url) history.replaceState(null, '', store.url);
+    if (store.phase !== 'ready') return;
+    const url = store.url;
+    if (location.hash !== url) {
+      if (this.following || parseRoute(location.hash) === null) history.replaceState(null, '', url);
+      else history.pushState(null, '', url);
+    }
+    this.following = false;
   }
 
   private get nav(): NavItem[] {
